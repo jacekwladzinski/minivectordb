@@ -1,7 +1,7 @@
-import pytest
 import numpy as np
 
 from minivectordb.engine import MiniVectorDb
+
 
 def test_add():
     dim = 4
@@ -18,6 +18,7 @@ def test_add():
     assert db.texts[_id] == text
     np.testing.assert_array_equal(db.vectors[0], vector)
 
+
 def test_add_multiple():
     dim = 8
     db = MiniVectorDb(dim)
@@ -25,7 +26,7 @@ def test_add_multiple():
     n = 10
     for i in range(n):
         vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
-        _id = str(i)      
+        _id = str(i)
         text = "Vector" + str(_id)
         db.add(_id, vector, text)
 
@@ -33,10 +34,8 @@ def test_add_multiple():
 
     for i in range(n):
         vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
-        _id = str(i)      
+        _id = str(i)
         text = "Vector" + str(_id)
 
         assert db.ids[i] == _id
         assert db.texts[_id] == text
-
-
