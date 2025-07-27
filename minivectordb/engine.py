@@ -14,3 +14,9 @@ class MiniVectorDb:
         self.vectors = np.vstack([self.vectors, vector])
         self.ids.append(id)
         self.texts[id] = text
+
+    def delete(self, id: str):
+        index = self.ids.index(id)
+        self.vectors = np.delete(self.vectors, index, axis=0)
+        self.ids.pop(index)
+        self.texts.pop(id)
