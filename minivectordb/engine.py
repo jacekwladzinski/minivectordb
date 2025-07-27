@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List
 
+
 class MiniVectorDb:
     def __init__(self, dim: int):
         self.dim = dim
