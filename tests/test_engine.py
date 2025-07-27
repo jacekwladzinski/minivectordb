@@ -1,6 +1,26 @@
 import numpy as np
-
+import pytest
 from minivectordb.engine import MiniVectorDb
+
+@pytest.mark.parametrize("text, dim, expected_norm", [
+    ("", 10, 0.0),
+    ("a", 10, 1.0),
+    ("aa", 10, 1.0),
+    ("ab", 10, 1.0)
+])
+def test_string_to_embedding_norm(text, dim, expected_norm):
+    vector = MiniVectorDb.string_to_embedding(text, dim)
+
+    norm = np.linalg.norm(vector)
+    assert pytest.approx(norm, rel=1e-6) == expected_norm
+
+
+def test_string_to_embedding_repeat():
+    text = "repeat"
+    dim = 128
+    vector1 = MiniVectorDb.string_to_embedding(text, dim)
+    vector2 = MiniVectorDb.string_to_embedding(text, dim)
+    np.testing.assert_array_equal(vector1, vector2)
 
 
 def test_add():
@@ -39,6 +59,7 @@ def test_add_multiple():
 
         assert db.ids[i] == _id
         assert db.texts[_id] == text
+
 
 def test_delete():
     dim = 8
