@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from minivectordb.engine import MiniVectorDb
 
+EPSILON = 1e-6
+
 @pytest.mark.parametrize("text, dim, expected_norm", [
     ("", 10, 0.0),
     ("a", 10, 1.0),
@@ -12,7 +14,7 @@ def test_string_to_embedding_norm(text, dim, expected_norm):
     vector = MiniVectorDb.string_to_embedding(text, dim)
 
     norm = np.linalg.norm(vector)
-    assert pytest.approx(norm, rel=1e-6) == expected_norm
+    assert pytest.approx(norm, rel=EPSILON) == expected_norm
 
 
 def test_string_to_embedding_repeat():
@@ -80,3 +82,32 @@ def test_delete():
 
     assert _id not in db.ids
     assert _id not in db.texts.keys()
+
+
+def test_cosine_similarity_identical():
+    dim = 3
+    db = MiniVectorDb(dim)
+
+    vector = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    db.add("0", vector, "vector0")
+
+    similarities = db.cosine_similarity(vector)
+    assert similarities.shape == (1,)
+    assert pytest.approx(similarities[0], rel=EPSILON) == 1.0
+
+
+def test_cosine_similarity_orthogonal():
+    dim = 3
+    db = MiniVectorDb(dim)
+
+    x = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    y = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+
+    db.add("x", x, "vector x")
+    db.add("y", y, "vector y")
+
+    z = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+    similarities = db.cosine_similarity(z)
+
+    assert similarities.shape == (2,)
+    assert all(abs(s) < EPSILON for s in similarities)
