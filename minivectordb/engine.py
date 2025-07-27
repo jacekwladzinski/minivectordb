@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from typing import List
 
 
@@ -25,7 +24,6 @@ class MiniVectorDb:
         
         return vector
 
-
     def add(self, id: str, vector: np.ndarray, text: str):
         # stack numpy vector vertically
         self.vectors = np.vstack([self.vectors, vector])
@@ -37,3 +35,9 @@ class MiniVectorDb:
         self.vectors = np.delete(self.vectors, index, axis=0)
         self.ids.pop(index)
         self.texts.pop(id)
+
+    def cosine_similarity(self, query: np.ndarray) -> np.ndarray:
+        query_normalized = query / np.linalg.norm(query)
+        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
+        vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
+        return vectors_normalized.dot(query_normalized)
