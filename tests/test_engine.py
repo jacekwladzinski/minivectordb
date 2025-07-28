@@ -113,7 +113,7 @@ def test_cosine_similarity_orthogonal():
     assert all(abs(s) < EPSILON for s in similarities)
 
 
-def test_search_2d():
+def test_search_linear_2d():
     db = MiniVectorDb(dim=2)
     x = np.array([1, 0], dtype=np.float32)
     y = np.array([0, 1], dtype=np.float32)
@@ -124,7 +124,7 @@ def test_search_2d():
     db.add("z", z, "vector z")
     
     query = np.array([1, 0], dtype=np.float32)
-    results = db.search(query, k=3)
+    results = db.search(query, k=3, method='linear')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -138,7 +138,7 @@ def test_search_2d():
     assert texts == ["vector x", "vector z", "vector y"]
 
 
-def test_search_delete():
+def test_search_linear_delete():
     db = MiniVectorDb(dim=2)
     x = np.array([1, 0], dtype=np.float32)
     y = np.array([0, 1], dtype=np.float32)
@@ -148,6 +148,46 @@ def test_search_delete():
 
     db.delete("x")
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2)
+    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='linear')
+    ids = [r[0] for r in results]
+    assert ids == ["y"]
+
+
+def test_search_kd_tree_2d():
+    db = MiniVectorDb(dim=2)
+    x = np.array([1, 0], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.float32)
+    z = np.array([1, 1], dtype=np.float32)
+    
+    db.add("x", x, "vector x")
+    db.add("y", y, "vector y")
+    db.add("z", z, "vector z")
+    
+    query = np.array([1, 0], dtype=np.float32)
+    results = db.search(query, k=3, method='kdtree')
+    
+    ids = [r[0] for r in results]
+    similarities = [r[1] for r in results]
+    texts = [r[2] for r in results]
+    
+    # x:  0 deg
+    # z: 45 deg
+    # y: 90 deg
+    assert ids == ["x", "z", "y"]
+    assert pytest.approx(similarities) == [1.0, 1 / np.sqrt(2), 0.0]
+    assert texts == ["vector x", "vector z", "vector y"]
+
+
+def test_search_kd_tree_delete():
+    db = MiniVectorDb(dim=2)
+    x = np.array([1, 0], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.float32)
+    
+    db.add("x", x, "vector x")
+    db.add("y", y, "vector y")
+
+    db.delete("x")
+    
+    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='kdtree')
     ids = [r[0] for r in results]
     assert ids == ["y"]
