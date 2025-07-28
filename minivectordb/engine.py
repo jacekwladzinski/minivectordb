@@ -1,5 +1,5 @@
 import numpy as np
-from typing import List
+from typing import List, Tuple
 
 
 class MiniVectorDb:
@@ -41,3 +41,13 @@ class MiniVectorDb:
         norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
         vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
         return vectors_normalized.dot(query_normalized)
+
+    def search(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+        similarities = self.cosine_similarity(query)
+        
+        topk_index = np.argsort(-similarities)[:k]
+        results = []
+        for idx in topk_index:
+            id = self.ids[idx]
+            results.append((id, float(similarities[idx]), self.texts.get(id)))
+        return results
