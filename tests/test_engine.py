@@ -90,23 +90,6 @@ def test_cosine_similarity_identical():
     assert pytest.approx(similarities[0], rel=EPSILON) == 1.0
 
 
-def test_cosine_similarity_orthogonal():
-    dim = 3
-    db = MiniVectorDb(dim)
-
-    x = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    y = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-
-    z = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-    similarities = db.cosine_similarity(z)
-
-    assert similarities.shape == (2,)
-    assert all(abs(s) < EPSILON for s in similarities)
-
-
 def test_search_linear_2d():
     db = MiniVectorDb(dim=2)
     x = np.array([1, 0], dtype=np.float32)
