@@ -20,14 +20,12 @@ def test_string_to_embedding_norm(text, expected_norm):
 
 def test_string_to_embedding_repeat():
     text = "repeat"
-    dim = 128
-    vector1 = MiniVectorDb.string_to_embedding(text, dim)
-    vector2 = MiniVectorDb.string_to_embedding(text, dim)
+    vector1 = MiniVectorDb.string_to_embedding(text)
+    vector2 = MiniVectorDb.string_to_embedding(text)
     np.testing.assert_array_equal(vector1, vector2)
 
 
 def test_add():
-    dim = 4
     db = MiniVectorDb(dim)
 
     vector = np.array(np.linspace(0.0, float(dim), dim), dtype=np.float32)

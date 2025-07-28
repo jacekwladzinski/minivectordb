@@ -19,8 +19,9 @@ class MiniVectorDb:
         embedding = MiniVectorDb.model.encode(text, normalize_embeddings=True)
         return np.array(embedding, dtype=np.float32)
 
-    def add(self, id: str, vector: np.ndarray, text: str):
+    def add(self, id: str, text: str):
         # stack numpy vector vertically
+        vector = string_to_embedding(text)
         self.vectors = np.vstack([self.vectors, vector])
         self.ids.append(id)
         self.texts[id] = text
