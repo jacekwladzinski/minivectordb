@@ -38,20 +38,17 @@ def test_add():
 
 
 def test_add_multiple():
-    dim = 8
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
     n = 10
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
-        db.add(_id, vector, text)
+        db.add(_id, text)
 
-    assert db.vectors.shape == (n, dim)
+    assert db.vectors.shape[0] == n
 
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
 
