@@ -74,6 +74,18 @@ def test_delete():
     assert key not in db.texts.keys()
 
 
+def test_delete_empty():
+    db = MiniVectorDb()
+
+    key = str(0)
+    db.delete(key)
+
+    assert db.vectors.shape[0] == 0
+
+    assert db.keys == []
+    assert len(db.texts.keys()) == 0
+
+
 def test_cosine_similarity_identical():
     db = MiniVectorDb()
 

@@ -29,7 +29,11 @@ class MiniVectorDb:
         self.needs_rebuild = True
 
     def delete(self, key: str):
-        index = self.keys.index(key)
+        index = -1
+        try:
+            index = self.keys.index(key)
+        except ValueError:
+            return
         self.vectors = np.delete(self.vectors, index, axis=0)
         self.keys.pop(index)
         self.texts.pop(key)
