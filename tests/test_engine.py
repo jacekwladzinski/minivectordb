@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from sentence_transformers import SentenceTransformer
 from minivectordb.engine import MiniVectorDb
 
 EPSILON = 1e-6

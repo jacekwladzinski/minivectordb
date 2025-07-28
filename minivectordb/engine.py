@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Tuple
 
 from sklearn.neighbors import KDTree
+from sentence_transformers import SentenceTransformer
 
 
 class MiniVectorDb:
