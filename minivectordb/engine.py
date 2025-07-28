@@ -3,6 +3,11 @@ from typing import List, Tuple
 from sklearn.neighbors import KDTree
 from sentence_transformers import SentenceTransformer
 
+from typing import NamedTuple
+class SearchResult(NamedTuple):
+    key: str
+    score: float
+    text: str
 
 class MiniVectorDb:
     model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -43,7 +48,7 @@ class MiniVectorDb:
         query_normalized = query / np.linalg.norm(query)
         return self.vectors.dot(query_normalized)
 
-    def search_linear(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+    def search_linear(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
         similarities = self.cosine_similarity(query)
         
         topk_index = np.argsort(-similarities)[:k]
@@ -60,7 +65,7 @@ class MiniVectorDb:
             self.kd_tree = None
         self.needs_rebuild = False
 
-    def search_kd_tree(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+    def search_kd_tree(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
 
         n = self.vectors.shape[0]
         if n == 0:
@@ -82,7 +87,7 @@ class MiniVectorDb:
             results.append((self.keys[i], float(similarity), self.texts[self.keys[i]]))
         return results
 
-    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[Tuple[str, float, str]]:
+    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[SearchResult]:
         if method == 'kdtree':
             return self.search_kd_tree(query, k)
         else:
