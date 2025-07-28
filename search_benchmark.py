@@ -1,6 +1,28 @@
 import time
+import os
 import numpy as np
+import pandas as pd
 from minivectordb.engine import MiniVectorDb
+
+RESULTS_FILE = "benchmark_results.csv"
+
+def save_results(n_vectors, k, add_time, linear_time, kd_tree_time, top_match):
+
+    row = pd.DataFrame([{
+        "timestamp": pd.Timestamp.now(),
+        "n_vectors": n_vectors,
+        "k": k,
+        "add_time_s": add_time,
+        "linear_time_s": linear_time,
+        "kd_tree_time_s": kd_tree_time,
+        "top_match": top_match
+    }])
+
+    if not os.path.isfile(RESULTS_FILE):
+        row.to_csv(RESULTS_FILE, index=False)
+    else:
+        row.to_csv(RESULTS_FILE, mode="a", header=False, index=False)
+
 
 def benchmark_search_methods(n_vectors: int, k: int):
     db = MiniVectorDb()
@@ -43,10 +65,17 @@ def benchmark_search_methods(n_vectors: int, k: int):
     kd_tree_time = end - start
     print(f"KD-Tree Search Time: {kd_tree_time:.6f} seconds")
 
-    if linear_results[0][0] == kd_tree_results[0][0]:
+    top_match = linear_results[0][0] == kd_tree_results[0][0]
+    if top_match:
         print("Top result match ✅")
     else:
         print("Top result mismatch ❌")
+
+    save_results(
+        n_vectors, k,
+        add_time, linear_time, kd_tree_time,
+        top_match
+    )
 
 if __name__ == "__main__":
     benchmark_search_methods(n_vectors=1000, k=5)
