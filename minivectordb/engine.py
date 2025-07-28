@@ -78,4 +78,9 @@ class MiniVectorDb:
             similarity = 1.0 - (d ** 2) / 2.0
             results.append((vector_id, float(similarity), self.texts[vector_id]))
         return results
-        
+
+    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[Tuple[str, float, str]]:
+        if method == 'kdtree':
+            return self.search_kd_tree(query, k)
+        else:
+            return self.search_linear(query, k)

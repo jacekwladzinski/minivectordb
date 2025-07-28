@@ -124,7 +124,7 @@ def test_search_linear_2d():
     db.add("z", z, "vector z")
     
     query = np.array([1, 0], dtype=np.float32)
-    results = db.search_linear(query, k=3)
+    results = db.search(query, k=3, method='linear')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -148,7 +148,7 @@ def test_search_linear_delete():
 
     db.delete("x")
     
-    results = db.search_linear(np.array([1, 0], dtype=np.float32), k=2)
+    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='linear')
     ids = [r[0] for r in results]
     assert ids == ["y"]
 
@@ -164,7 +164,7 @@ def test_search_kd_tree_2d():
     db.add("z", z, "vector z")
     
     query = np.array([1, 0], dtype=np.float32)
-    results = db.search_kd_tree(query, k=3)
+    results = db.search(query, k=3, method='kdtree')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -188,6 +188,6 @@ def test_search_kd_tree_delete():
 
     db.delete("x")
     
-    results = db.search_kd_tree(np.array([1, 0], dtype=np.float32), k=2)
+    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='kdtree')
     ids = [r[0] for r in results]
     assert ids == ["y"]
