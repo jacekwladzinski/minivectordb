@@ -152,15 +152,17 @@ def test_search_kd_tree_2d():
 
 
 def test_search_kd_tree_delete():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
+    db = MiniVectorDb()
 
-    db.delete("x")
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='kdtree')
+    db.add("1", text1)
+    db.add("2", text2)
+
+    db.delete("1")
+    
+    query = MiniVectorDb.string_to_embedding(text1)
+    results = db.search(query, k=2, method='kdtree')
     ids = [r[0] for r in results]
-    assert ids == ["y"]
+    assert ids == ["2"]
