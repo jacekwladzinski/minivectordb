@@ -1,61 +1,54 @@
 import numpy as np
 import pytest
+from sentence_transformers import SentenceTransformer
 from minivectordb.engine import MiniVectorDb
 
 EPSILON = 1e-6
 
-@pytest.mark.parametrize("text, dim, expected_norm", [
-    ("", 10, 0.0),
-    ("a", 10, 1.0),
-    ("aa", 10, 1.0),
-    ("ab", 10, 1.0)
+@pytest.mark.parametrize("text, expected_norm", [
+    ("", 1.0),
+    ("a", 1.0),
+    ("abc", 1.0)
 ])
-def test_string_to_embedding_norm(text, dim, expected_norm):
-    vector = MiniVectorDb.string_to_embedding(text, dim)
+def test_string_to_embedding_norm(text, expected_norm):
+    vector = MiniVectorDb.string_to_embedding(text)
 
     norm = np.linalg.norm(vector)
+    print(norm)
     assert pytest.approx(norm, rel=EPSILON) == expected_norm
 
 
 def test_string_to_embedding_repeat():
     text = "repeat"
-    dim = 128
-    vector1 = MiniVectorDb.string_to_embedding(text, dim)
-    vector2 = MiniVectorDb.string_to_embedding(text, dim)
+    vector1 = MiniVectorDb.string_to_embedding(text)
+    vector2 = MiniVectorDb.string_to_embedding(text)
     np.testing.assert_array_equal(vector1, vector2)
 
 
 def test_add():
-    dim = 4
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
-    vector = np.array(np.linspace(0.0, float(dim), dim), dtype=np.float32)
     _id = "0"
     text = "Vector" + str(_id)
 
-    db.add(_id, vector, text)
+    db.add(_id, text)
 
-    assert db.vectors.shape == (1, dim)
     assert db.ids == [_id]
     assert db.texts[_id] == text
-    np.testing.assert_array_equal(db.vectors[0], vector)
 
 
 def test_add_multiple():
-    dim = 8
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
     n = 10
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
-        db.add(_id, vector, text)
+        db.add(_id, text)
 
-    assert db.vectors.shape == (n, dim)
+    assert db.vectors.shape[0] == n
 
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
 
@@ -64,130 +57,109 @@ def test_add_multiple():
 
 
 def test_delete():
-    dim = 8
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
     n = 2
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
-        db.add(_id, vector, text)
+        db.add(_id, text)
 
     _id = str(0)
-    text = "Vector" + str(_id)
     db.delete(_id)
 
-    assert db.vectors.shape == (n - 1, dim)
+    assert db.vectors.shape[0] == n - 1
 
     assert _id not in db.ids
     assert _id not in db.texts.keys()
 
 
 def test_cosine_similarity_identical():
-    dim = 3
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
-    vector = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-    db.add("0", vector, "vector0")
+    _id = "0"
+    text = "vector0"
+    db.add(_id, text)
+    vector = MiniVectorDb.string_to_embedding(text)
 
     similarities = db.cosine_similarity(vector)
     assert similarities.shape == (1,)
     assert pytest.approx(similarities[0], rel=EPSILON) == 1.0
 
 
-def test_cosine_similarity_orthogonal():
-    dim = 3
-    db = MiniVectorDb(dim)
-
-    x = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    y = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-
-    z = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-    similarities = db.cosine_similarity(z)
-
-    assert similarities.shape == (2,)
-    assert all(abs(s) < EPSILON for s in similarities)
-
-
 def test_search_linear_2d():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    z = np.array([1, 1], dtype=np.float32)
+    db = MiniVectorDb()
+
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
+    text3 = "The sky is light blue."
     
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-    db.add("z", z, "vector z")
+    db.add("1", text1)
+    db.add("2", text2)
+    db.add("3", text3)
     
-    query = np.array([1, 0], dtype=np.float32)
+    query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='linear')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    # x:  0 deg
-    # z: 45 deg
-    # y: 90 deg
-    assert ids == ["x", "z", "y"]
-    assert pytest.approx(similarities) == [1.0, 1 / np.sqrt(2), 0.0]
-    assert texts == ["vector x", "vector z", "vector y"]
+    assert ids == ["1", "3", "2"]
+    assert texts == [text1, text3, text2]
 
 
 def test_search_linear_delete():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
+    db = MiniVectorDb()
 
-    db.delete("x")
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='linear')
+    db.add("1", text1)
+    db.add("2", text2)
+
+    db.delete("1")
+    
+    query = MiniVectorDb.string_to_embedding(text1)
+    results = db.search(query, k=2, method='linear')
     ids = [r[0] for r in results]
-    assert ids == ["y"]
+    assert ids == ["2"]
 
 
 def test_search_kd_tree_2d():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    z = np.array([1, 1], dtype=np.float32)
+    db = MiniVectorDb()
+
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
+    text3 = "The sky is light blue."
     
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-    db.add("z", z, "vector z")
+    db.add("1", text1)
+    db.add("2", text2)
+    db.add("3", text3)
     
-    query = np.array([1, 0], dtype=np.float32)
+    query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='kdtree')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    # x:  0 deg
-    # z: 45 deg
-    # y: 90 deg
-    assert ids == ["x", "z", "y"]
-    assert pytest.approx(similarities) == [1.0, 1 / np.sqrt(2), 0.0]
-    assert texts == ["vector x", "vector z", "vector y"]
+    assert ids == ["1", "3", "2"]
+    assert texts == [text1, text3, text2]
 
 
 def test_search_kd_tree_delete():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
+    db = MiniVectorDb()
 
-    db.delete("x")
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='kdtree')
+    db.add("1", text1)
+    db.add("2", text2)
+
+    db.delete("1")
+    
+    query = MiniVectorDb.string_to_embedding(text1)
+    results = db.search(query, k=2, method='kdtree')
     ids = [r[0] for r in results]
-    assert ids == ["y"]
+    assert ids == ["2"]
