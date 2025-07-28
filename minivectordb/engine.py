@@ -84,3 +84,4 @@ class MiniVectorDb:
             return self.search_kd_tree(query, k)
         else:
             return self.search_linear(query, k)
+            
