@@ -3,6 +3,11 @@ from typing import List, Tuple
 from sklearn.neighbors import KDTree
 from sentence_transformers import SentenceTransformer
 
+from typing import NamedTuple
+class SearchResult(NamedTuple):
+    key: str
+    score: float
+    text: str
 
 class MiniVectorDb:
     model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -10,7 +15,7 @@ class MiniVectorDb:
     def __init__(self):
         self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
-        self.ids: List[str] = []
+        self.keys: List[str] = []
         self.texts: dict = {}
         self.kd_tree = None
         self.needs_rebuild = False
@@ -20,35 +25,37 @@ class MiniVectorDb:
         embedding = MiniVectorDb.model.encode(text, normalize_embeddings=True)
         return np.array(embedding, dtype=np.float32)
 
-    def add(self, id: str, text: str):
+    def add(self, key: str, text: str):
         # stack numpy vector vertically
         vector = MiniVectorDb.string_to_embedding(text)
         self.vectors = np.vstack([self.vectors, vector])
-        self.ids.append(id)
-        self.texts[id] = text
+        self.keys.append(key)
+        self.texts[key] = text
         self.needs_rebuild = True
 
-    def delete(self, id: str):
-        index = self.ids.index(id)
+    def delete(self, key: str):
+        index = -1
+        try:
+            index = self.keys.index(key)
+        except ValueError:
+            return
         self.vectors = np.delete(self.vectors, index, axis=0)
-        self.ids.pop(index)
-        self.texts.pop(id)
+        self.keys.pop(index)
+        self.texts.pop(key)
         self.needs_rebuild = True
 
     def cosine_similarity(self, query: np.ndarray) -> np.ndarray:
         query_normalized = query / np.linalg.norm(query)
-        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
-        vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
-        return vectors_normalized.dot(query_normalized)
+        return self.vectors.dot(query_normalized)
 
-    def search_linear(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+    def search_linear(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
         similarities = self.cosine_similarity(query)
         
         topk_index = np.argsort(-similarities)[:k]
         results = []
-        for idx in topk_index:
-            id = self.ids[idx]
-            results.append((id, float(similarities[idx]), self.texts.get(id)))
+        for index in topk_index:
+            key = self.keys[index]
+            results.append((key, float(similarities[index]), self.texts.get(key)))
         return results
 
     def rebuild_tree(self):
@@ -58,15 +65,12 @@ class MiniVectorDb:
             self.kd_tree = None
         self.needs_rebuild = False
 
-    def search_kd_tree(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+    def search_kd_tree(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
 
         n = self.vectors.shape[0]
         if n == 0:
             return []
-
-        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
-        vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
-
+            
         if self.needs_rebuild or self.kd_tree is None:
             self.rebuild_tree()
 
@@ -80,10 +84,10 @@ class MiniVectorDb:
         for d, i in zip(distance, index):
             # calculate cosine similarity
             similarity = 1.0 - (d ** 2) / 2.0
-            results.append((self.ids[i], float(similarity), self.texts[self.ids[i]]))
+            results.append((self.keys[i], float(similarity), self.texts[self.keys[i]]))
         return results
 
-    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[Tuple[str, float, str]]:
+    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[SearchResult]:
         if method == 'kdtree':
             return self.search_kd_tree(query, k)
         else:
