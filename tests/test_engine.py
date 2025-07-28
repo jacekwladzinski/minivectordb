@@ -5,16 +5,16 @@ from minivectordb.engine import MiniVectorDb
 
 EPSILON = 1e-6
 
-@pytest.mark.parametrize("text, dim, expected_norm", [
-    ("", 10, 0.0),
-    ("a", 10, 1.0),
-    ("aa", 10, 1.0),
-    ("ab", 10, 1.0)
+@pytest.mark.parametrize("text, expected_norm", [
+    ("", 1.0),
+    ("a", 1.0),
+    ("abc", 1.0)
 ])
-def test_string_to_embedding_norm(text, dim, expected_norm):
-    vector = MiniVectorDb.string_to_embedding(text, dim)
+def test_string_to_embedding_norm(text, expected_norm):
+    vector = MiniVectorDb.string_to_embedding(text)
 
     norm = np.linalg.norm(vector)
+    print(norm)
     assert pytest.approx(norm, rel=EPSILON) == expected_norm
 
 
