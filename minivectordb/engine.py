@@ -10,7 +10,7 @@ class MiniVectorDb:
 
     def __init__(self):
         self.dim = self.model.get_sentence_embedding_dimension()
-        self.vectors = np.zeros((0, dim), dtype=np.float32)
+        self.vectors = np.zeros((0, self.dim), dtype=np.float32)
         self.ids: List[str] = []
         self.texts: dict = {}
 
@@ -21,7 +21,7 @@ class MiniVectorDb:
 
     def add(self, id: str, text: str):
         # stack numpy vector vertically
-        vector = string_to_embedding(text)
+        vector = MiniVectorDb.string_to_embedding(text)
         self.vectors = np.vstack([self.vectors, vector])
         self.ids.append(id)
         self.texts[id] = text

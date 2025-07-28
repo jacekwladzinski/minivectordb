@@ -26,18 +26,15 @@ def test_string_to_embedding_repeat():
 
 
 def test_add():
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
-    vector = np.array(np.linspace(0.0, float(dim), dim), dtype=np.float32)
     _id = "0"
     text = "Vector" + str(_id)
 
-    db.add(_id, vector, text)
+    db.add(_id, text)
 
-    assert db.vectors.shape == (1, dim)
     assert db.ids == [_id]
     assert db.texts[_id] == text
-    np.testing.assert_array_equal(db.vectors[0], vector)
 
 
 def test_add_multiple():
