@@ -113,7 +113,7 @@ def test_cosine_similarity_orthogonal():
     assert all(abs(s) < EPSILON for s in similarities)
 
 
-def test_search_2d():
+def test_search_linear_2d():
     db = MiniVectorDb(dim=2)
     x = np.array([1, 0], dtype=np.float32)
     y = np.array([0, 1], dtype=np.float32)
@@ -124,7 +124,7 @@ def test_search_2d():
     db.add("z", z, "vector z")
     
     query = np.array([1, 0], dtype=np.float32)
-    results = db.search(query, k=3)
+    results = db.search_linear(query, k=3)
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -138,7 +138,7 @@ def test_search_2d():
     assert texts == ["vector x", "vector z", "vector y"]
 
 
-def test_search_delete():
+def test_search_linear_delete():
     db = MiniVectorDb(dim=2)
     x = np.array([1, 0], dtype=np.float32)
     y = np.array([0, 1], dtype=np.float32)
@@ -148,6 +148,6 @@ def test_search_delete():
 
     db.delete("x")
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2)
+    results = db.search_linear(np.array([1, 0], dtype=np.float32), k=2)
     ids = [r[0] for r in results]
     assert ids == ["y"]

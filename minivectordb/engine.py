@@ -42,7 +42,7 @@ class MiniVectorDb:
         vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
         return vectors_normalized.dot(query_normalized)
 
-    def search(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
+    def search_linear(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
         similarities = self.cosine_similarity(query)
         
         topk_index = np.argsort(-similarities)[:k]
