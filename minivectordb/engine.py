@@ -37,9 +37,7 @@ class MiniVectorDb:
 
     def cosine_similarity(self, query: np.ndarray) -> np.ndarray:
         query_normalized = query / np.linalg.norm(query)
-        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
-        vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
-        return vectors_normalized.dot(query_normalized)
+        return self.vectors.dot(query_normalized)
 
     def search_linear(self, query: np.ndarray, k: int = 5) -> List[Tuple[str, float, str]]:
         similarities = self.cosine_similarity(query)
@@ -63,10 +61,7 @@ class MiniVectorDb:
         n = self.vectors.shape[0]
         if n == 0:
             return []
-
-        norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
-        vectors_normalized = self.vectors / np.clip(norms, 1e-9, None)
-
+            
         if self.needs_rebuild or self.kd_tree is None:
             self.rebuild_tree()
 
