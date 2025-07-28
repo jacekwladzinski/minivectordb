@@ -78,11 +78,12 @@ def test_delete():
 
 
 def test_cosine_similarity_identical():
-    dim = 3
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
-    vector = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-    db.add("0", vector, "vector0")
+    _id = "0"
+    text = "vector0"
+    db.add(_id, text)
+    vector = MiniVectorDb.string_to_embedding(text)
 
     similarities = db.cosine_similarity(vector)
     assert similarities.shape == (1,)
