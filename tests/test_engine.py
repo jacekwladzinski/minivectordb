@@ -91,68 +91,64 @@ def test_cosine_similarity_identical():
 
 
 def test_search_linear_2d():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    z = np.array([1, 1], dtype=np.float32)
+    db = MiniVectorDb()
+
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
+    text3 = "The sky is light blue."
     
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-    db.add("z", z, "vector z")
+    db.add("1", text1)
+    db.add("2", text2)
+    db.add("3", text3)
     
-    query = np.array([1, 0], dtype=np.float32)
+    query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='linear')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    # x:  0 deg
-    # z: 45 deg
-    # y: 90 deg
-    assert ids == ["x", "z", "y"]
-    assert pytest.approx(similarities) == [1.0, 1 / np.sqrt(2), 0.0]
-    assert texts == ["vector x", "vector z", "vector y"]
+    assert ids == ["1", "3", "2"]
+    assert texts == [text1, text3, text2]
 
 
 def test_search_linear_delete():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
+    db = MiniVectorDb()
 
-    db.delete("x")
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
     
-    results = db.search(np.array([1, 0], dtype=np.float32), k=2, method='linear')
+    db.add("1", text1)
+    db.add("2", text2)
+
+    db.delete("1")
+    
+    query = MiniVectorDb.string_to_embedding(text1)
+    results = db.search(query, k=2, method='linear')
     ids = [r[0] for r in results]
-    assert ids == ["y"]
+    assert ids == ["2"]
 
 
 def test_search_kd_tree_2d():
-    db = MiniVectorDb(dim=2)
-    x = np.array([1, 0], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.float32)
-    z = np.array([1, 1], dtype=np.float32)
+    db = MiniVectorDb()
+
+    text1 = "The sky is blue."
+    text2 = "A cat with a hat."
+    text3 = "The sky is light blue."
     
-    db.add("x", x, "vector x")
-    db.add("y", y, "vector y")
-    db.add("z", z, "vector z")
+    db.add("1", text1)
+    db.add("2", text2)
+    db.add("3", text3)
     
-    query = np.array([1, 0], dtype=np.float32)
+    query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='kdtree')
     
     ids = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    # x:  0 deg
-    # z: 45 deg
-    # y: 90 deg
-    assert ids == ["x", "z", "y"]
-    assert pytest.approx(similarities) == [1.0, 1 / np.sqrt(2), 0.0]
-    assert texts == ["vector x", "vector z", "vector y"]
+    assert ids == ["1", "3", "2"]
+    assert texts == [text1, text3, text2]
 
 
 def test_search_kd_tree_delete():
