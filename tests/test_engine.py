@@ -60,21 +60,18 @@ def test_add_multiple():
 
 
 def test_delete():
-    dim = 8
-    db = MiniVectorDb(dim)
+    db = MiniVectorDb()
 
     n = 2
     for i in range(n):
-        vector = np.array(np.linspace(float(i), float(dim + i), dim), dtype=np.float32)
         _id = str(i)
         text = "Vector" + str(_id)
-        db.add(_id, vector, text)
+        db.add(_id, text)
 
     _id = str(0)
-    text = "Vector" + str(_id)
     db.delete(_id)
 
-    assert db.vectors.shape == (n - 1, dim)
+    assert db.vectors.shape[0] == n - 1
 
     assert _id not in db.ids
     assert _id not in db.texts.keys()
