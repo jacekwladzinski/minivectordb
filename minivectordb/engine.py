@@ -5,26 +5,18 @@ from sklearn.neighbors import KDTree
 
 
 class MiniVectorDb:
-    def __init__(self, dim: int):
-        self.dim = dim
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    def __init__(self):
+        self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, dim), dtype=np.float32)
         self.ids: List[str] = []
         self.texts: dict = {}
 
     @staticmethod
-    def string_to_embedding(text: str, dim: int) -> np.ndarray:
-        vector = np.zeros(dim, dtype=np.float32)
-        tokens = list(text)
-
-        for token in tokens:
-            index = abs(hash(token)) % dim
-            vector[index] += 1.0
-
-        norm = np.linalg.norm(vector)
-        if norm > 0:
-            vector /= norm
-        
-        return vector
+    def string_to_embedding(text: str) -> np.ndarray:
+        embedding = MiniVectorDb.model.encode(text, normalize_embeddings=True)
+        return np.array(embedding, dtype=np.float32)
 
     def add(self, id: str, vector: np.ndarray, text: str):
         # stack numpy vector vertically
@@ -84,4 +76,3 @@ class MiniVectorDb:
             return self.search_kd_tree(query, k)
         else:
             return self.search_linear(query, k)
-            
