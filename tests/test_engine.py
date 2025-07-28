@@ -28,13 +28,13 @@ def test_string_to_embedding_repeat():
 def test_add():
     db = MiniVectorDb()
 
-    _id = "0"
-    text = "Vector" + str(_id)
+    key = "0"
+    text = "Vector" + str(key)
 
-    db.add(_id, text)
+    db.add(key, text)
 
-    assert db.ids == [_id]
-    assert db.texts[_id] == text
+    assert db.keys == [key]
+    assert db.texts[key] == text
 
 
 def test_add_multiple():
@@ -42,18 +42,18 @@ def test_add_multiple():
 
     n = 10
     for i in range(n):
-        _id = str(i)
-        text = "Vector" + str(_id)
-        db.add(_id, text)
+        key = str(i)
+        text = "Vector" + str(key)
+        db.add(key, text)
 
     assert db.vectors.shape[0] == n
 
     for i in range(n):
-        _id = str(i)
-        text = "Vector" + str(_id)
+        key = str(i)
+        text = "Vector" + str(key)
 
-        assert db.ids[i] == _id
-        assert db.texts[_id] == text
+        assert db.keys[i] == key
+        assert db.texts[key] == text
 
 
 def test_delete():
@@ -61,25 +61,25 @@ def test_delete():
 
     n = 2
     for i in range(n):
-        _id = str(i)
-        text = "Vector" + str(_id)
-        db.add(_id, text)
+        key = str(i)
+        text = "Vector" + str(key)
+        db.add(key, text)
 
-    _id = str(0)
-    db.delete(_id)
+    key = str(0)
+    db.delete(key)
 
     assert db.vectors.shape[0] == n - 1
 
-    assert _id not in db.ids
-    assert _id not in db.texts.keys()
+    assert key not in db.keys
+    assert key not in db.texts.keys()
 
 
 def test_cosine_similarity_identical():
     db = MiniVectorDb()
 
-    _id = "0"
+    key = "0"
     text = "vector0"
-    db.add(_id, text)
+    db.add(key, text)
     vector = MiniVectorDb.string_to_embedding(text)
 
     similarities = db.cosine_similarity(vector)
@@ -101,11 +101,11 @@ def test_search_linear_2d():
     query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='linear')
     
-    ids = [r[0] for r in results]
+    keys = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    assert ids == ["1", "3", "2"]
+    assert keys == ["1", "3", "2"]
     assert texts == [text1, text3, text2]
 
 
@@ -122,8 +122,8 @@ def test_search_linear_delete():
     
     query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=2, method='linear')
-    ids = [r[0] for r in results]
-    assert ids == ["2"]
+    keys = [r[0] for r in results]
+    assert keys == ["2"]
 
 
 def test_search_kd_tree_2d():
@@ -140,11 +140,11 @@ def test_search_kd_tree_2d():
     query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=3, method='kdtree')
     
-    ids = [r[0] for r in results]
+    keys = [r[0] for r in results]
     similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
     
-    assert ids == ["1", "3", "2"]
+    assert keys == ["1", "3", "2"]
     assert texts == [text1, text3, text2]
 
 
@@ -161,5 +161,5 @@ def test_search_kd_tree_delete():
     
     query = MiniVectorDb.string_to_embedding(text1)
     results = db.search(query, k=2, method='kdtree')
-    ids = [r[0] for r in results]
-    assert ids == ["2"]
+    keys = [r[0] for r in results]
+    assert keys == ["2"]
