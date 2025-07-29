@@ -45,6 +45,7 @@ class MiniVectorDb:
         batch_vectors = self.model.encode(texts,
                                 batch_size=batch_size,
                                 normalize_embeddings=True)
+        batch_vectors = np.array(batch_vectors, dtype=np.float32)
 
         self.keys.extend(keys)
         self.texts.update({k: t for k, t in zip(keys, texts)})
@@ -88,7 +89,7 @@ class MiniVectorDb:
         n_clusters = min(self.n_clusters, n_vectors)
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
         labels = kmeans.fit_predict(self.vectors)
-        self.centroids = kmeans.cluster_centers_
+        self.centroids = kmeans.cluster_centers_.astype(np.float32)
 
         inverted_index: dict = {cluster_id: [] for cluster_id in range(n_clusters)}
         for index, cluster_id in enumerate(labels):
