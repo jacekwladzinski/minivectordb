@@ -110,8 +110,7 @@ def test_search_linear_2d():
     db.add("2", text2)
     db.add("3", text3)
     
-    query = MiniVectorDb.string_to_embedding(text1)
-    results = db.search(query, k=3, method='linear')
+    results = db.search(text1, k=3, method='linear')
     
     keys = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -132,8 +131,7 @@ def test_search_linear_delete():
 
     db.delete("1")
     
-    query = MiniVectorDb.string_to_embedding(text1)
-    results = db.search(query, k=2, method='linear')
+    results = db.search(text1, k=2, method='linear')
     keys = [r[0] for r in results]
     assert keys == ["2"]
 
@@ -149,8 +147,7 @@ def test_search_kd_tree_2d():
     db.add("2", text2)
     db.add("3", text3)
     
-    query = MiniVectorDb.string_to_embedding(text1)
-    results = db.search(query, k=3, method='kdtree')
+    results = db.search(text1, k=3, method='kdtree')
     
     keys = [r[0] for r in results]
     similarities = [r[1] for r in results]
@@ -171,7 +168,6 @@ def test_search_kd_tree_delete():
 
     db.delete("1")
     
-    query = MiniVectorDb.string_to_embedding(text1)
-    results = db.search(query, k=2, method='kdtree')
+    results = db.search(text1, k=2, method='kdtree')
     keys = [r[0] for r in results]
     assert keys == ["2"]
