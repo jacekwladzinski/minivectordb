@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
-from sentence_transformers import SentenceTransformer
 from minivectordb.engine import MiniVectorDb
 
 
 EPSILON = 1e-6
+
 
 @pytest.mark.parametrize("text, expected_norm", [
     ("", 1.0),
@@ -55,6 +55,7 @@ def test_add_multiple():
 
         assert db.keys[i] == key
         assert db.texts[key] == text
+
 
 def test_add_batch():
     db = MiniVectorDb()
@@ -125,17 +126,16 @@ def test_search_linear_2d():
     text1 = "The sky is blue."
     text2 = "A cat with a hat."
     text3 = "The sky is light blue."
-    
+
     db.add("1", text1)
     db.add("2", text2)
     db.add("3", text3)
-    
+
     results = db.search(text1, k=3, method='linear')
-    
+
     keys = [r[0] for r in results]
-    similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
-    
+
     assert keys == ["1", "3", "2"]
     assert texts == [text1, text3, text2]
 
@@ -145,12 +145,12 @@ def test_search_linear_delete():
 
     text1 = "The sky is blue."
     text2 = "A cat with a hat."
-    
+
     db.add("1", text1)
     db.add("2", text2)
 
     db.delete("1")
-    
+
     results = db.search(text1, k=2, method='linear')
     keys = [r[0] for r in results]
     assert keys == ["2"]
@@ -162,17 +162,16 @@ def test_search_kd_tree_2d():
     text1 = "The sky is blue."
     text2 = "A cat with a hat."
     text3 = "The sky is light blue."
-    
+
     db.add("1", text1)
     db.add("2", text2)
     db.add("3", text3)
-    
+
     results = db.search(text1, k=3, method='kdtree')
-    
+
     keys = [r[0] for r in results]
-    similarities = [r[1] for r in results]
     texts = [r[2] for r in results]
-    
+
     assert keys == ["1", "3", "2"]
     assert texts == [text1, text3, text2]
 
@@ -182,23 +181,26 @@ def test_search_kd_tree_delete():
 
     text1 = "The sky is blue."
     text2 = "A cat with a hat."
-    
+
     db.add("1", text1)
     db.add("2", text2)
 
     db.delete("1")
-    
+
     results = db.search(text1, k=2, method='kdtree')
     keys = [r[0] for r in results]
     assert keys == ["2"]
+
 
 def test_rebuild_ivf_empty():
     db = MiniVectorDb()
     db.rebuild_ivf()
 
+
 def test_search_ivf_empty():
     db = MiniVectorDb()
     assert db.search_ivf("query") == []
+
 
 def test_search_ivf_matches_linear():
     db = MiniVectorDb(n_clusters=3, n_probe=3)

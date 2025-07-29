@@ -1,6 +1,5 @@
 import time
 import os
-import numpy as np
 import pandas as pd
 from minivectordb.engine import MiniVectorDb
 
@@ -8,6 +7,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 RESULTS_FILE = "benchmark_results.csv"
+
 
 def save_results(n_vectors, k, add_time,
                  linear_time, kd_tree_time, ivf_time,
@@ -38,7 +38,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
 
     # Add
     start = time.time()
-    
+
     n_batches = (int)(n_vectors / batch_size)
     for i in range(n_batches):
         keys = [str(i * batch_size + j) for j in range(batch_size)]
@@ -50,7 +50,6 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     print(f"Add time: {add_time:.6f} seconds")
 
     query_text = "Sample sentence to test similarity"
-    query_vector = db.string_to_embedding(query_text)
 
     # Warm-up
     start = time.time()
@@ -86,7 +85,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     print(f"IVF search Time: {ivf_time:.6f} seconds")
 
     top_match_kd_tree = linear_results[0][0] == kd_tree_results[0][0]
-    top_match_ivf = linear_results[0][0] == kd_tree_results[0][0]
+    top_match_ivf = linear_results[0][0] == ivf_results[0][0]
 
     if top_match_kd_tree:
         print("KD Tree top result match ✅")
@@ -104,6 +103,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         linear_time, kd_tree_time, ivf_time,
         top_match_kd_tree, top_match_ivf
     )
+
 
 if __name__ == "__main__":
     batch_size = 256

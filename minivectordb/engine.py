@@ -1,4 +1,4 @@
-from typing import List, Tuple, NamedTuple
+from typing import List, NamedTuple
 
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -43,8 +43,8 @@ class MiniVectorDb:
 
     def add_batch(self, keys: List[str], texts: List[str], batch_size=256) -> None:
         batch_vectors = self.model.encode(texts,
-                                batch_size=batch_size,
-                                normalize_embeddings=True)
+                                          batch_size=batch_size,
+                                          normalize_embeddings=True)
         batch_vectors = np.array(batch_vectors, dtype=np.float32)
 
         self.keys.extend(keys)
@@ -100,7 +100,7 @@ class MiniVectorDb:
     def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
         query = self.string_to_embedding(query_text)
         similarities = self.cosine_similarity(query)
-        
+
         topk_index = np.argsort(-similarities)[:k]
         results = []
         for index in topk_index:
@@ -114,7 +114,7 @@ class MiniVectorDb:
         n = self.vectors.shape[0]
         if n == 0:
             return []
-            
+
         if self.needs_rebuild or self.kd_tree is None:
             self.rebuild_tree()
 
@@ -122,7 +122,7 @@ class MiniVectorDb:
 
         distance, index = self.kd_tree.query(query.reshape(1, -1), k=min(k, n))
         distance = distance[0]
-        index  = index[0]
+        index = index[0]
 
         results = []
         for d, i in zip(distance, index):
@@ -133,6 +133,7 @@ class MiniVectorDb:
         return results
 
     def search_ivf(self, query_text: str, k: int = 5) -> List[SearchResult]:
+        # https://developer.nvidia.com/blog/accelerated-vector-search-approximating-with-nvidia-cuvs-ivf-flat/
         if self.needs_rebuild or self.centroids is None:
             self.rebuild_ivf()
         if self.centroids is None:
@@ -140,8 +141,8 @@ class MiniVectorDb:
 
         query = self.string_to_embedding(query_text)
 
-        dists = np.linalg.norm(self.centroids - query, axis=1)
-        nearest_clusters = np.argsort(dists)[:self.n_probe]
+        distances = np.linalg.norm(self.centroids - query, axis=1)
+        nearest_clusters = np.argsort(distances)[:self.n_probe]
 
         candidates = []
         for cluster_id in nearest_clusters:
@@ -163,10 +164,10 @@ class MiniVectorDb:
             ))
         return results
 
-    def search(self, query_text: str, k: int = 5, method='kdtree') -> List[SearchResult]:
-        if method == 'kdtree':
-            return self.search_kd_tree(query_text, k)
-        elif method == 'linear':
+    def search(self, query_text: str, k: int = 5, method='ivf') -> List[SearchResult]:
+        if method == 'linear':
             return self.search_linear(query_text, k)
+        elif method == 'kdtree':
+            return self.search_kd_tree(query_text, k)
         else:
             return self.search_ivf(query_text, k)
