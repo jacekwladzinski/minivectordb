@@ -3,6 +3,7 @@ import pytest
 from sentence_transformers import SentenceTransformer
 from minivectordb.engine import MiniVectorDb
 
+
 EPSILON = 1e-6
 
 @pytest.mark.parametrize("text, expected_norm", [
@@ -63,8 +64,9 @@ def test_add_batch():
     texts = ["Vector" + str(i) for i in range(n)]
 
     db.add_batch(keys, texts, n)
+    db.add_batch(keys, texts, n)
 
-    assert db.vectors.shape[0] == n
+    assert db.vectors.shape[0] == 2 * n
 
     for i in range(n):
         key = str(i)
@@ -189,3 +191,7 @@ def test_search_kd_tree_delete():
     results = db.search(text1, k=2, method='kdtree')
     keys = [r[0] for r in results]
     assert keys == ["2"]
+
+def test_rebuild_ivf_empty():
+    db = MiniVectorDb()
+    db.rebuild_ivf()

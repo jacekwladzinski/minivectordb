@@ -2,6 +2,7 @@ from typing import List, Tuple, NamedTuple
 
 import numpy as np
 from sklearn.neighbors import KDTree
+from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 
 
@@ -14,13 +15,18 @@ class SearchResult(NamedTuple):
 class MiniVectorDb:
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def __init__(self):
+    def __init__(self, n_clusters: int = 100, n_probe: int = 10):
         self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
         self.keys: List[str] = []
         self.texts: dict = {}
         self.kd_tree = None
         self.needs_rebuild = False
+
+        self.n_clusters = n_clusters
+        self.n_probe = n_probe
+        self.centroids: np.ndarray = None
+        self.inverted_index: dict = {}
 
     @staticmethod
     def string_to_embedding(text: str) -> np.ndarray:
@@ -71,6 +77,25 @@ class MiniVectorDb:
             self.kd_tree = None
         self.needs_rebuild = False
 
+    def rebuild_ivf(self) -> None:
+        n_vectors = self.vectors.shape[0]
+        if n_vectors == 0:
+            self.centroids = None
+            self.inverted_index = {}
+            self.needs_rebuild = False
+            return
+
+        n_clusters = min(self.n_clusters, n_vectors)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        labels = kmeans.fit_predict(self.vectors)
+        self.centroids = kmeans.cluster_centers_
+
+        inverted_index: dict = {cluster_id: [] for cluster_id in range(n_clusters)}
+        for index, cluster_id in enumerate(labels):
+            inverted_index[cluster_id].append(index)
+        self.inverted_index = inverted_index
+        self.needs_rebuild = False
+
     def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
         query = self.string_to_embedding(query_text)
         similarities = self.cosine_similarity(query)
@@ -104,6 +129,37 @@ class MiniVectorDb:
             similarity = 1.0 - (d ** 2) / 2.0
             result = SearchResult(self.keys[i], float(similarity), self.texts[self.keys[i]])
             results.append(result)
+        return results
+
+    def search_ivf(self, query_text: str, k: int = 5) -> List[SearchResult]:
+        if self.needs_rebuild or self.centroids is None:
+            self.rebuild_ivf()
+        if self.centroids is None:
+            return []
+
+        query = self.string_to_embedding(query_text)
+
+        dists = np.linalg.norm(self.centroids - query, axis=1)
+        nearest_clusters = np.argsort(dists)[:self.n_probe]
+
+        candidates = []
+        for cluster_id in nearest_clusters:
+            candidates.extend(self.inverted_index.get(cluster_id, []))
+        if not candidates:
+            return []
+
+        candidate_vectors = self.vectors[candidates]
+        similarities = candidate_vectors.dot(query)
+        topk_local = np.argsort(-similarities)[:k]
+        results = []
+
+        for local_index in topk_local:
+            index = candidates[local_index]
+            results.append(SearchResult(
+                self.keys[index],
+                float(similarities[local_index]),
+                self.texts[self.keys[index]]
+            ))
         return results
 
     def search(self, query_text: str, k: int = 5, method='kdtree') -> List[SearchResult]:
