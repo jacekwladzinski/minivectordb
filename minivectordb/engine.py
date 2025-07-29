@@ -47,10 +47,17 @@ class MiniVectorDb:
         self.needs_rebuild = True
 
     def cosine_similarity(self, query: np.ndarray) -> np.ndarray:
-        query_normalized = query / np.linalg.norm(query)
-        return self.vectors.dot(query_normalized)
+        return self.vectors.dot(query)
 
-    def search_linear(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
+    def rebuild_tree(self) -> None:
+        if self.vectors.shape[0] > 0:
+            self.kd_tree = KDTree(self.vectors, metric='euclidean')
+        else:
+            self.kd_tree = None
+        self.needs_rebuild = False
+
+    def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
+        query = self.string_to_embedding(query_text)
         similarities = self.cosine_similarity(query)
         
         topk_index = np.argsort(-similarities)[:k]
@@ -61,14 +68,7 @@ class MiniVectorDb:
             results.append(result)
         return results
 
-    def rebuild_tree(self) -> None:
-        if self.vectors.shape[0] > 0:
-            self.kd_tree = KDTree(self.vectors, metric='euclidean')
-        else:
-            self.kd_tree = None
-        self.needs_rebuild = False
-
-    def search_kd_tree(self, query: np.ndarray, k: int = 5) -> List[SearchResult]:
+    def search_kd_tree(self, query_text: str, k: int = 5) -> List[SearchResult]:
 
         n = self.vectors.shape[0]
         if n == 0:
@@ -77,9 +77,9 @@ class MiniVectorDb:
         if self.needs_rebuild or self.kd_tree is None:
             self.rebuild_tree()
 
-        query_normalized = query / np.linalg.norm(query)
+        query = self.string_to_embedding(query_text)
 
-        distance, index = self.kd_tree.query(query_normalized.reshape(1, -1), k=min(k, n))
+        distance, index = self.kd_tree.query(query.reshape(1, -1), k=min(k, n))
         distance = distance[0]
         index  = index[0]
 
@@ -91,8 +91,8 @@ class MiniVectorDb:
             results.append(result)
         return results
 
-    def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[SearchResult]:
+    def search(self, query_text: str, k: int = 5, method='kdtree') -> List[SearchResult]:
         if method == 'kdtree':
-            return self.search_kd_tree(query, k)
+            return self.search_kd_tree(query_text, k)
         else:
-            return self.search_linear(query, k)
+            return self.search_linear(query_text, k)
