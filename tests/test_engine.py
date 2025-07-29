@@ -195,3 +195,7 @@ def test_search_kd_tree_delete():
 def test_rebuild_ivf_empty():
     db = MiniVectorDb()
     db.rebuild_ivf()
+
+def test_search_ivf_empty():
+    db = MiniVectorDb()
+    assert db.search_ivf("query") == []
