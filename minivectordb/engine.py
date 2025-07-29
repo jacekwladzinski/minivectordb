@@ -1,13 +1,15 @@
+from typing import List, NamedTuple
+
 import numpy as np
-from typing import List, Tuple
 from sklearn.neighbors import KDTree
 from sentence_transformers import SentenceTransformer
 
-from typing import NamedTuple
+
 class SearchResult(NamedTuple):
     key: str
     score: float
     text: str
+
 
 class MiniVectorDb:
     model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -25,7 +27,7 @@ class MiniVectorDb:
         embedding = MiniVectorDb.model.encode(text, normalize_embeddings=True)
         return np.array(embedding, dtype=np.float32)
 
-    def add(self, key: str, text: str):
+    def add(self, key: str, text: str) -> None:
         # stack numpy vector vertically
         vector = MiniVectorDb.string_to_embedding(text)
         self.vectors = np.vstack([self.vectors, vector])
@@ -33,7 +35,7 @@ class MiniVectorDb:
         self.texts[key] = text
         self.needs_rebuild = True
 
-    def delete(self, key: str):
+    def delete(self, key: str) -> None:
         index = -1
         try:
             index = self.keys.index(key)
@@ -55,10 +57,11 @@ class MiniVectorDb:
         results = []
         for index in topk_index:
             key = self.keys[index]
-            results.append((key, float(similarities[index]), self.texts.get(key)))
+            result = SearchResult(key, float(similarities[index]), self.texts.get(key))
+            results.append(result)
         return results
 
-    def rebuild_tree(self):
+    def rebuild_tree(self) -> None:
         if self.vectors.shape[0] > 0:
             self.kd_tree = KDTree(self.vectors, metric='euclidean')
         else:
@@ -84,7 +87,8 @@ class MiniVectorDb:
         for d, i in zip(distance, index):
             # calculate cosine similarity
             similarity = 1.0 - (d ** 2) / 2.0
-            results.append((self.keys[i], float(similarity), self.texts[self.keys[i]]))
+            result = SearchResult(self.keys[i], float(similarity), self.texts[self.keys[i]])
+            results.append(result)
         return results
 
     def search(self, query: np.ndarray, k: int = 5, method='kdtree') -> List[SearchResult]:
