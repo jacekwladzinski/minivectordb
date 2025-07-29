@@ -58,11 +58,11 @@ def test_add_multiple():
 def test_add_batch():
     db = MiniVectorDb()
 
-    n = 8
+    n = 256
     keys = [str(i) for i in range(n)]
     texts = ["Vector" + str(i) for i in range(n)]
 
-    db.add_batch(keys, texts, 8)
+    db.add_batch(keys, texts, n)
 
     assert db.vectors.shape[0] == n
 

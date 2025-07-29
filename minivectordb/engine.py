@@ -36,8 +36,7 @@ class MiniVectorDb:
         self.needs_rebuild = True
 
     def add_batch(self, keys: List[str], texts: List[str], batch_size=256) -> None:
-
-        batch_vectors = self.model.encode(list(texts),
+        batch_vectors = self.model.encode(texts,
                                 batch_size=batch_size,
                                 normalize_embeddings=True)
 
