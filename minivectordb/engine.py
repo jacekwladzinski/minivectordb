@@ -165,5 +165,7 @@ class MiniVectorDb:
     def search(self, query_text: str, k: int = 5, method='kdtree') -> List[SearchResult]:
         if method == 'kdtree':
             return self.search_kd_tree(query_text, k)
-        else:
+        elif method == 'linear':
             return self.search_linear(query_text, k)
+        else:
+            return self.search_ivf(query_text, k)
