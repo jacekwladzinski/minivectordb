@@ -55,6 +55,24 @@ def test_add_multiple():
         assert db.keys[i] == key
         assert db.texts[key] == text
 
+def test_add_batch():
+    db = MiniVectorDb()
+
+    n = 256
+    keys = [str(i) for i in range(n)]
+    texts = ["Vector" + str(i) for i in range(n)]
+
+    db.add_batch(keys, texts, n)
+
+    assert db.vectors.shape[0] == n
+
+    for i in range(n):
+        key = str(i)
+        text = "Vector" + str(key)
+
+        assert db.keys[i] == key
+        assert db.texts[key] == text
+
 
 def test_delete():
     db = MiniVectorDb()

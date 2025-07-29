@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, Tuple, NamedTuple
 
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -28,11 +28,26 @@ class MiniVectorDb:
         return np.array(embedding, dtype=np.float32)
 
     def add(self, key: str, text: str) -> None:
-        # stack numpy vector vertically
+        # stack numpy vector vertically (really slow)
         vector = MiniVectorDb.string_to_embedding(text)
         self.vectors = np.vstack([self.vectors, vector])
         self.keys.append(key)
         self.texts[key] = text
+        self.needs_rebuild = True
+
+    def add_batch(self, keys: List[str], texts: List[str], batch_size=256) -> None:
+        batch_vectors = self.model.encode(texts,
+                                batch_size=batch_size,
+                                normalize_embeddings=True)
+
+        self.keys.extend(keys)
+        self.texts.update({k: t for k, t in zip(keys, texts)})
+
+        if self.vectors.size == 0:
+            self.vectors = batch_vectors
+        else:
+            self.vectors = np.concatenate([self.vectors, batch_vectors], axis=0)
+
         self.needs_rebuild = True
 
     def delete(self, key: str) -> None:
