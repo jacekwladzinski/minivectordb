@@ -211,8 +211,16 @@ def test_search_ivf_matches_linear():
     linear_results = db.search_linear("query", k=3)
     ivf_results = db.search_ivf("query", k=3)
 
-    print(linear_results[0])
-    print(ivf_results[0])
     assert linear_results[0].key == ivf_results[0].key
     assert linear_results[0].text == ivf_results[0].text
     assert abs(linear_results[0].score - ivf_results[0].score) < EPSILON
+
+
+def test_rebuild_lsh_empty():
+    db = MiniVectorDb()
+    db.rebuild_lsh()
+
+
+def test_search_lsh_empty():
+    db = MiniVectorDb()
+    assert db.search_lsh("query") == []

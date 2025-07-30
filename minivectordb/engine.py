@@ -15,18 +15,34 @@ class SearchResult(NamedTuple):
 class MiniVectorDb:
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    def __init__(self, n_clusters: int = 100, n_probe: int = 10):
+    def __init__(
+        self,
+        n_clusters: int = 100,
+        n_probe: int = 10,
+        n_hash_tables: int = 10,
+        hash_size: int = 16,
+    ):
         self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
         self.keys: List[str] = []
         self.texts: dict = {}
-        self.kd_tree = None
-        self.needs_rebuild = False
 
+        # KD tree
+        self.kd_tree = None
+
+        # IVF
         self.n_clusters = n_clusters
         self.n_probe = n_probe
         self.centroids: np.ndarray = None
         self.inverted_index: dict = {}
+
+        # LSH
+        self.n_hash_tables = n_hash_tables
+        self.hash_size = hash_size
+        self.lsh_planes = None
+        self.lsh_tables = None
+
+        self.needs_rebuild = False
 
     @staticmethod
     def string_to_embedding(text: str) -> np.ndarray:
@@ -97,6 +113,34 @@ class MiniVectorDb:
         self.inverted_index = inverted_index
         self.needs_rebuild = False
 
+    def rebuild_lsh(self) -> None:
+        n_vectors = self.vectors.shape[0]
+        if n_vectors == 0:
+            self.lsh_planes = None
+            self.lsh_tables = []
+            self.needs_rebuild = False
+            return
+
+        rng = np.random.RandomState(42)
+
+        self.lsh_planes = [
+            rng.randn(self.hash_size, self.dim).astype(np.float32)
+            for _ in range(self.n_hash_tables)
+        ]
+        self.lsh_tables = []
+
+        # build hash tables
+        for planes in self.lsh_planes:
+            projections = np.dot(self.vectors, planes.T)  # (n, hash_size)
+            bits = projections >= 0  # boolean mask
+            table: dict = {}
+            for idx, hash_bits in enumerate(bits):
+                key = tuple(int(b) for b in hash_bits)
+                table.setdefault(key, []).append(idx)
+            self.lsh_tables.append(table)
+
+        self.needs_rebuild = False
+
     def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
         query = self.string_to_embedding(query_text)
         similarities = self.cosine_similarity(query)
@@ -164,10 +208,45 @@ class MiniVectorDb:
             ))
         return results
 
-    def search(self, query_text: str, k: int = 5, method='ivf') -> List[SearchResult]:
+    def search_lsh(self, query_text: str, k: int = 5) -> List[SearchResult]:
+        # rebuild LSH tables if needed
+        if self.needs_rebuild or self.lsh_planes is None:
+            self.rebuild_lsh()
+        if not self.lsh_tables:
+            return []
+
+        query = self.string_to_embedding(query_text)
+        candidates = set()
+        # probe each hash table
+        for planes, table in zip(self.lsh_planes, self.lsh_tables):
+            proj = np.dot(planes, query)  # (hash_size,)
+            bits = proj >= 0
+            key = tuple(int(b) for b in bits)
+            candidates.update(table.get(key, []))
+
+        if not candidates:
+            # fallback to brute-force
+            return self.search_linear(query_text, k)
+
+        candidates = list(candidates)
+        cand_vecs = self.vectors[candidates]
+        sims = cand_vecs.dot(query)
+        top_local = np.argsort(-sims)[:k]
+
+        return [
+            SearchResult(
+                self.keys[candidates[i]],
+                float(sims[i]),
+                self.texts[self.keys[candidates[i]]]
+            ) for i in top_local
+        ]
+
+    def search(self, query_text: str, k: int = 5, method='lsh') -> List[SearchResult]:
         if method == 'linear':
             return self.search_linear(query_text, k)
         elif method == 'kdtree':
             return self.search_kd_tree(query_text, k)
-        else:
+        elif method == 'ivf':
             return self.search_ivf(query_text, k)
+        else:
+            return self.search_lsh(query_text, k)
