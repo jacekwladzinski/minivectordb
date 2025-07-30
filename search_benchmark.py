@@ -1,5 +1,4 @@
 import time
-import os
 import numpy as np
 import pandas as pd
 from minivectordb.engine import MiniVectorDb
@@ -8,6 +7,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 RESULTS_FILE = "benchmark_results.csv"
+db = MiniVectorDb()
 
 
 def load_sentences():
@@ -27,30 +27,23 @@ def load_sentences():
     return sentences
 
 
-def save_results(n_vectors, k, add_time,
-                 linear_time, kd_tree_time, ivf_time,
-                 mismatch_kd_tree, mismatch_ivf):
+def benchmark_method(
+        method: str,
+        query_texts: np.ndarray,
+        k: int,
+        n_repeats: int):
 
-    row = pd.DataFrame([{
-        "timestamp": pd.Timestamp.now(),
-        "n_vectors": n_vectors,
-        "k": k,
-        "add_time_s": add_time,
-        "linear_time_s": linear_time,
-        "kd_tree_time_s": kd_tree_time,
-        "ivf_time_s": ivf_time,
-        "mismatch_kd_tree": mismatch_kd_tree,
-        "mismatch_ivf": mismatch_ivf
-    }])
+    start = time.time()
+    for i in range(n_repeats):
+        results = db.search(query_texts[i], k, method=method)
+    end = time.time()
 
-    if not os.path.isfile(RESULTS_FILE):
-        row.to_csv(RESULTS_FILE, index=False)
-    else:
-        row.to_csv(RESULTS_FILE, mode="a", header=False, index=False)
+    search_time = end - start
+    print(f"{method} search time: {search_time:.6f} seconds")
+    return results
 
 
 def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
-    db = MiniVectorDb()
     sentences = load_sentences()
     n_vectors = min(n_vectors, sentences.size)
 
@@ -73,47 +66,34 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     n_repeats = 100
     query_texts = np.random.choice(sentences[:n_batches * batch_size], size=n_repeats)
 
+    methods = ['linear', 'kdtree', 'ivf', 'lsh']
+
     # Warm-up
     start = time.time()
-    db.search_linear(query_texts[0], k)
-    db.search_kd_tree(query_texts[0], k)
-    db.search_ivf(query_texts[0], k)
+    for method in methods:
+        db.search(query_texts[0], k, method)
     end = time.time()
     warm_up_time = end - start
     print(f"Warm-up time: {warm_up_time:.6f} seconds")
 
-    # Benchmark linear search
-    start = time.time()
-    for i in range(n_repeats):
-        linear_results = db.search_linear(query_texts[i], k)
-    end = time.time()
-    linear_time = end - start
-    print(f"Linear search Time: {linear_time:.6f} seconds")
+    result_dict = {}
 
-    # Benchmark KD-Tree search
-    start = time.time()
-    for i in range(n_repeats):
-        kd_tree_results = db.search_kd_tree(query_texts[i], k)
-    end = time.time()
-    kd_tree_time = end - start
-    print(f"KD-Tree search Time: {kd_tree_time:.6f} seconds")
-
-    # Benchmark IVF
-    start = time.time()
-    for i in range(n_repeats):
-        ivf_results = db.search_ivf(query_texts[i], k)
-    end = time.time()
-    ivf_time = end - start
-    print(f"IVF search Time: {ivf_time:.6f} seconds")
+    for method in methods:
+        result_dict[method] = benchmark_method(method, query_texts, k, n_repeats)
 
     mismatch_kd_tree = False
     mismatch_ivf = False
+    mismatch_lsh = False
+
+    print(result_dict['lsh'])
 
     for i in range(k):
-        if linear_results[i].key != kd_tree_results[i].key:
+        if result_dict['linear'][i].key != result_dict['kdtree'][i].key:
             mismatch_kd_tree = True
-        if linear_results[i].key != ivf_results[i].key:
+        if result_dict['linear'][i].key != result_dict['ivf'][i].key:
             mismatch_ivf = True
+        if result_dict['linear'][i].key != result_dict['lsh'][i].key:
+            mismatch_lsh = True
 
     df = pd.DataFrame(columns=[
         'Sentence: linear',
@@ -121,17 +101,21 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         'Sentence: KD tree',
         'Score: KD tree',
         'Sentence: IVF',
-        'Score: IVF']
+        'Score: IVF',
+        'Sentence: LSH',
+        'Score: LSH']
     )
 
     for i in range(k):
         row = pd.DataFrame([{
-            'Sentence: linear': linear_results[i].text,
-            'Score: linear': linear_results[i].score,
-            'Sentence: KD tree': kd_tree_results[i].text,
-            'Score: KD tree': kd_tree_results[i].score,
-            'Sentence: IVF': ivf_results[i].text,
-            'Score: IVF': ivf_results[i].score,
+            'Sentence: linear': result_dict['linear'][i].text,
+            'Score: linear': result_dict['linear'][i].score,
+            'Sentence: KD tree': result_dict['kdtree'][i].text,
+            'Score: KD tree': result_dict['kdtree'][i].score,
+            'Sentence: IVF': result_dict['ivf'][i].text,
+            'Score: IVF': result_dict['ivf'][i].score,
+            'Sentence: LSH': result_dict['lsh'][i].text,
+            'Score: LSH': result_dict['lsh'][i].score,
         }])
 
         df = pd.concat([df, row], ignore_index=True)
@@ -148,14 +132,12 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     if not mismatch_ivf:
         print("IVF results match ✅")
     else:
-        print("IVF Tree results mismatch ❌")
+        print("IVF results mismatch ❌")
 
-    save_results(
-        n_vectors, k,
-        add_time,
-        linear_time, kd_tree_time, ivf_time,
-        mismatch_kd_tree, mismatch_ivf
-    )
+    if not mismatch_lsh:
+        print("LSH results match ✅")
+    else:
+        print("LSH results mismatch ❌")
 
 
 if __name__ == "__main__":

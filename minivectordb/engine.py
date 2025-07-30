@@ -19,8 +19,8 @@ class MiniVectorDb:
         self,
         n_clusters: int = 100,
         n_probe: int = 10,
-        n_hash_tables: int = 10,
-        hash_size: int = 16,
+        n_hash_tables: int = 4,
+        hash_size: int = 8,
     ):
         self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
