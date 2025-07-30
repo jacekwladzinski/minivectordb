@@ -23,7 +23,7 @@ def load_sentences():
     )
 
     sentences = np.unique(sentences)
-    sentences = np.random.shuffle(sentences)
+    np.random.shuffle(sentences)
     return sentences
 
 
