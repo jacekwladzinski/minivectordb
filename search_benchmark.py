@@ -9,13 +9,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 RESULTS_FILE = "benchmark_results.csv"
 db = MiniVectorDb()
 
+DATASET_URL = 'hf://datasets/sentence-transformers/stsb/data/train-00000-of-00001.parquet'
+
 
 def load_sentences():
-    splits = {
-        'train': 'data/train-00000-of-00001.parquet',
-        'validation': 'data/validation-00000-of-00001.parquet',
-        'test': 'data/test-00000-of-00001.parquet'}
-    df = pd.read_parquet("hf://datasets/sentence-transformers/stsb/" + splits["train"])
+    df = pd.read_parquet(DATASET_URL)
 
     sentences = np.concatenate(
         [df['sentence1'].to_numpy(), df['sentence2'].to_numpy()],
@@ -100,7 +98,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         row = {}
         for method in methods:
             row[f"Sentence: {method}"] = result_dict[method][i].text
-            row[f"Score: {method}"]    = result_dict[method][i].score
+            row[f"Score: {method}"] = result_dict[method][i].score
         rows.append(row)
 
     df = pd.DataFrame(rows)
