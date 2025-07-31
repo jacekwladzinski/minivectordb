@@ -1,4 +1,5 @@
 from typing import List, NamedTuple
+import heapq
 
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -21,6 +22,9 @@ class MiniVectorDb:
         n_probe: int = 10,
         n_hash_tables: int = 4,
         hash_size: int = 8,
+        hnsw_m: int = 16,
+        hnsw_ef_construction: int = 200,
+        hnsw_ef_search: int = 50,
     ):
         self.dim = self.model.get_sentence_embedding_dimension()
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
@@ -41,6 +45,16 @@ class MiniVectorDb:
         self.hash_size = hash_size
         self.lsh_planes = None
         self.lsh_tables = None
+
+        # HNSW
+        self.hnsw_m = hnsw_m
+        self.hnsw_ef_construction = hnsw_ef_construction
+        self.hnsw_ef_search = hnsw_ef_search
+        self.node_levels: List[int] = []
+        self.max_level: int = 0
+        # adjacency: list of dicts per layer -> node_id -> list of neighbor ids
+        self.hnsw_graph: List[dict] = []
+        self.entry_point: int = 0
 
         self.needs_rebuild = False
 
@@ -115,6 +129,7 @@ class MiniVectorDb:
 
     def rebuild_lsh(self) -> None:
         n_vectors = self.vectors.shape[0]
+
         if n_vectors == 0:
             self.lsh_planes = None
             self.lsh_tables = []
@@ -139,6 +154,45 @@ class MiniVectorDb:
                 table.setdefault(key, []).append(idx)
             self.lsh_tables.append(table)
 
+        self.needs_rebuild = False
+
+    def _get_random_level(self) -> int:
+        lvl = 0
+        # geometric distribution with p=1/hnsw_m
+        while np.random.rand() < 1.0 / self.hnsw_m:
+            lvl += 1
+        return lvl
+
+    def rebuild_hnsw(self) -> None:
+        n = self.vectors.shape[0]
+        if n == 0:
+            self.node_levels = []
+            self.hnsw_graph = []
+            self.entry_point = 0
+            self.max_level = 0
+            self.needs_rebuild = False
+            return
+
+        self.node_levels = [self._get_random_level() for _ in range(n)]
+        self.max_level = max(self.node_levels)
+
+        self.hnsw_graph = [dict() for _ in range(self.max_level + 1)]
+
+        for level in range(self.max_level + 1):
+            nodes = [i for i, l in enumerate(self.node_levels) if l >= level]
+            for node in nodes:
+                vectors = self.vectors[nodes]
+                distances = np.linalg.norm(vectors - self.vectors[node], axis=1)
+                if len(distances) <= 1:
+                    neighbors = []
+                else:
+                    idx_sorted = np.argsort(distances)
+
+                    selected = idx_sorted[1:self.hnsw_m + 1]
+                    neighbors = [nodes[j] for j in selected]
+                self.hnsw_graph[level][node] = neighbors
+
+        self.entry_point = max(range(n), key=lambda i: self.node_levels[i])
         self.needs_rebuild = False
 
     def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
@@ -197,8 +251,8 @@ class MiniVectorDb:
         candidate_vectors = self.vectors[candidates]
         similarities = candidate_vectors.dot(query)
         topk_local = np.argsort(-similarities)[:k]
-        results = []
 
+        results = []
         for local_index in topk_local:
             index = candidates[local_index]
             results.append(SearchResult(
@@ -241,6 +295,61 @@ class MiniVectorDb:
             ) for i in top_local
         ]
 
+    def _search_layer_greedy(self, query: np.ndarray, entry: int, level: int) -> int:
+        curr = entry
+        curr_dist = np.linalg.norm(self.vectors[curr] - query)
+        improved = True
+        while improved:
+            improved = False
+            for nbr in self.hnsw_graph[level].get(curr, []):
+                d = np.linalg.norm(self.vectors[nbr] - query)
+                if d < curr_dist:
+                    curr_dist = d
+                    curr = nbr
+                    improved = True
+        return curr
+
+    def search_hnsw(self, query_text: str, k: int = 5) -> List[SearchResult]:
+        if self.needs_rebuild or not self.hnsw_graph:
+            self.rebuild_hnsw()
+        n = self.vectors.shape[0]
+        if n == 0:
+            return []
+        query = self.string_to_embedding(query_text)
+
+        entry = self.entry_point
+        for level in range(self.max_level, 0, -1):
+            entry = self._search_layer_greedy(query, entry, level)
+
+        candidates = [(np.linalg.norm(self.vectors[entry] - query), entry)]
+        visited = {entry}
+
+        topk_heap = [(-candidates[0][0], entry)]
+        heapq.heapify(topk_heap)
+        while candidates:
+            dist, cur = heapq.heappop(candidates)
+            # early stop
+            if len(topk_heap) >= self.hnsw_ef_search and dist > -topk_heap[0][0]:
+                break
+            for neighbour in self.hnsw_graph[0].get(cur, []):
+                if neighbour in visited:
+                    continue
+                visited.add(neighbour)
+                d = np.linalg.norm(self.vectors[neighbour] - query)
+                heapq.heappush(candidates, (d, neighbour))
+                if len(topk_heap) < self.hnsw_ef_search:
+                    heapq.heappush(topk_heap, (-d, neighbour))
+                else:
+                    if d < -topk_heap[0][0]:
+                        heapq.heapreplace(topk_heap, (-d, neighbour))
+
+        top_candidates = heapq.nsmallest(k, [(-s, index) for s, index in topk_heap])
+        results = []
+        for dist, idx in top_candidates:
+            results.append(SearchResult(self.keys[idx],
+                                        float(1.0 - (dist**2) / 2.0),
+                                        self.texts[self.keys[idx]]))
+
     def search(self, query_text: str, k: int = 5, method='lsh') -> List[SearchResult]:
         if method == 'linear':
             return self.search_linear(query_text, k)
@@ -248,5 +357,7 @@ class MiniVectorDb:
             return self.search_kd_tree(query_text, k)
         elif method == 'ivf':
             return self.search_ivf(query_text, k)
+        elif method == 'hnsw':
+            return self.search_hnsw(query_text, k)
         else:
             return self.search_lsh(query_text, k)

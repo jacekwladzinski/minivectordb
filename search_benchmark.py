@@ -66,7 +66,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     n_repeats = 100
     query_texts = np.random.choice(sentences[:n_batches * batch_size], size=n_repeats)
 
-    methods = ['linear', 'kdtree', 'ivf', 'lsh']
+    methods = ['linear', 'kdtree', 'ivf', 'lsh', 'hnsw']
 
     # Warm-up
     start = time.time()
@@ -84,8 +84,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     mismatch_kd_tree = False
     mismatch_ivf = False
     mismatch_lsh = False
-
-    print(result_dict['lsh'])
+    mismatch_hnsw = False
 
     for i in range(k):
         if result_dict['linear'][i].key != result_dict['kdtree'][i].key:
@@ -94,6 +93,8 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
             mismatch_ivf = True
         if result_dict['linear'][i].key != result_dict['lsh'][i].key:
             mismatch_lsh = True
+        if result_dict['linear'][i].key != result_dict['hnsw'][i].key:
+            mismatch_hnsw = True
 
     df = pd.DataFrame(columns=[
         'Sentence: linear',
@@ -103,7 +104,10 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         'Sentence: IVF',
         'Score: IVF',
         'Sentence: LSH',
-        'Score: LSH']
+        'Score: LSH',
+        'Sentence: HNSW',
+        'Score: HNSW'
+        ]
     )
 
     for i in range(k):
@@ -116,6 +120,8 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
             'Score: IVF': result_dict['ivf'][i].score,
             'Sentence: LSH': result_dict['lsh'][i].text,
             'Score: LSH': result_dict['lsh'][i].score,
+            'Sentence: HNSW': result_dict['hnsw'][i].text,
+            'Score: HNSW': result_dict['hnsw'][i].score,
         }])
 
         df = pd.concat([df, row], ignore_index=True)
@@ -138,6 +144,11 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         print("LSH results match ✅")
     else:
         print("LSH results mismatch ❌")
+
+    if not mismatch_hnsw:
+        print("HNSW results match ✅")
+    else:
+        print("HNSW results mismatch ❌")
 
 
 if __name__ == "__main__":
