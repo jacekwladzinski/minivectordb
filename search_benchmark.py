@@ -4,22 +4,22 @@ import pandas as pd
 from minivectordb.engine import MiniVectorDb
 
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
-RESULTS_FILE = "benchmark_results.csv"
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
+SEARCH_RESULTS_FILE = "search_results.csv"
 db = MiniVectorDb()
+
+DATASET_URL = (
+    "hf://datasets/sentence-transformers/stsb/data/train-00000-of-00001.parquet"
+)
 
 
 def load_sentences():
-    splits = {
-        'train': 'data/train-00000-of-00001.parquet',
-        'validation': 'data/validation-00000-of-00001.parquet',
-        'test': 'data/test-00000-of-00001.parquet'}
-    df = pd.read_parquet("hf://datasets/sentence-transformers/stsb/" + splits["train"])
+    df = pd.read_parquet(DATASET_URL)
 
     sentences = np.concatenate(
-        [df['sentence1'].to_numpy(), df['sentence2'].to_numpy()],
-        axis=0
+        [df["sentence1"].to_numpy(), df["sentence2"].to_numpy()], axis=0
     )
 
     sentences = np.unique(sentences)
@@ -27,16 +27,11 @@ def load_sentences():
     return sentences
 
 
-def benchmark_method(
-        method: str,
-        query_texts: np.ndarray,
-        k: int,
-        n_repeats: int):
-
-    start = time.time()
+def benchmark_method(method: str, query_texts: np.ndarray, k: int, n_repeats: int):
+    start = time.perf_counter()
     for i in range(n_repeats):
         results = db.search(query_texts[i], k, method=method)
-    end = time.time()
+    end = time.perf_counter()
 
     search_time = end - start
     print(f"{method} search time: {search_time:.6f} seconds")
@@ -47,11 +42,9 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     sentences = load_sentences()
     n_vectors = min(n_vectors, sentences.size)
 
-    print(f"Sentences: {sentences.size}")
     print(f"Adding {n_vectors} entries...")
 
-    # Add
-    start = time.time()
+    start = time.perf_counter()
 
     n_batches = (int)(n_vectors / batch_size)
     for i in range(n_batches):
@@ -59,20 +52,20 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         texts = [sentences[i * batch_size + j] for j in range(batch_size)]
         db.add_batch(keys, texts, batch_size)
 
-    end = time.time()
+    end = time.perf_counter()
     add_time = end - start
     print(f"Add time: {add_time:.6f} seconds")
 
     n_repeats = 100
-    query_texts = np.random.choice(sentences[:n_batches * batch_size], size=n_repeats)
+    query_texts = np.random.choice(sentences[: n_batches * batch_size], size=n_repeats)
 
-    methods = ['linear', 'kdtree', 'ivf', 'lsh', 'hnsw']
+    methods = ["linear", "kdtree", "ivf", "lsh"]
 
     # Warm-up
-    start = time.time()
+    start = time.perf_counter()
     for method in methods:
         db.search(query_texts[0], k, method)
-    end = time.time()
+    end = time.perf_counter()
     warm_up_time = end - start
     print(f"Warm-up time: {warm_up_time:.6f} seconds")
 
@@ -81,76 +74,41 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     for method in methods:
         result_dict[method] = benchmark_method(method, query_texts, k, n_repeats)
 
-    mismatch_kd_tree = False
-    mismatch_ivf = False
-    mismatch_lsh = False
-    mismatch_hnsw = False
+    mismatch = {}
 
     for i in range(k):
-        if result_dict['linear'][i].key != result_dict['kdtree'][i].key:
-            mismatch_kd_tree = True
-        if result_dict['linear'][i].key != result_dict['ivf'][i].key:
-            mismatch_ivf = True
-        if result_dict['linear'][i].key != result_dict['lsh'][i].key:
-            mismatch_lsh = True
-        if result_dict['linear'][i].key != result_dict['hnsw'][i].key:
-            mismatch_hnsw = True
+        for method in methods[1:]:
+            if result_dict[method] is not None:
+                exact = result_dict["linear"][i].key
+                approximate = result_dict[method][i].key
+                mismatch[method] = exact != approximate
+            else:
+                mismatch[method] = True
 
-    df = pd.DataFrame(columns=[
-        'Sentence: linear',
-        'Score: linear',
-        'Sentence: KD tree',
-        'Score: KD tree',
-        'Sentence: IVF',
-        'Score: IVF',
-        'Sentence: LSH',
-        'Score: LSH',
-        'Sentence: HNSW',
-        'Score: HNSW'
-        ]
-    )
+    columns = np.concatenate([["Sentence: " + m, "Score: " + m] for m in methods])
+    df = pd.DataFrame(columns=columns)
 
+    rows = []
     for i in range(k):
-        row = pd.DataFrame([{
-            'Sentence: linear': result_dict['linear'][i].text,
-            'Score: linear': result_dict['linear'][i].score,
-            'Sentence: KD tree': result_dict['kdtree'][i].text,
-            'Score: KD tree': result_dict['kdtree'][i].score,
-            'Sentence: IVF': result_dict['ivf'][i].text,
-            'Score: IVF': result_dict['ivf'][i].score,
-            'Sentence: LSH': result_dict['lsh'][i].text,
-            'Score: LSH': result_dict['lsh'][i].score,
-            'Sentence: HNSW': result_dict['hnsw'][i].text,
-            'Score: HNSW': result_dict['hnsw'][i].score,
-        }])
+        row = {}
+        for method in methods:
+            row[f"Sentence: {method}"] = result_dict[method][i].text
+            row[f"Score: {method}"] = result_dict[method][i].score
+        rows.append(row)
 
-        df = pd.concat([df, row], ignore_index=True)
+    df = pd.DataFrame(rows)
 
-    print('Query: ', query_texts[n_repeats - 1])
+    print("Query: ", query_texts[n_repeats - 1])
     print(df.head())
-    df.to_csv("search_results.csv", index=False)
+    df.to_csv(SEARCH_RESULTS_FILE, index=False)
 
-    if not mismatch_kd_tree:
-        print("KD Tree results match ✅")
-    else:
-        print("KD Tree results mismatch ❌")
-
-    if not mismatch_ivf:
-        print("IVF results match ✅")
-    else:
-        print("IVF results mismatch ❌")
-
-    if not mismatch_lsh:
-        print("LSH results match ✅")
-    else:
-        print("LSH results mismatch ❌")
-
-    if not mismatch_hnsw:
-        print("HNSW results match ✅")
-    else:
-        print("HNSW results mismatch ❌")
+    for method, value in mismatch.items():
+        if not mismatch[method]:
+            print(f"{method} results match ✅")
+        else:
+            print(f"{method} results mismatch ❌")
 
 
 if __name__ == "__main__":
     batch_size = 256
-    benchmark_search_methods(n_vectors=2*batch_size, batch_size=batch_size, k=5)
+    benchmark_search_methods(n_vectors=2 * batch_size, batch_size=batch_size, k=5)
