@@ -49,7 +49,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     print(f"Adding {n_vectors} entries...")
 
     # Add
-    start = time.time()
+    start = time.perf_counter()
 
     n_batches = (int)(n_vectors / batch_size)
     for i in range(n_batches):
@@ -57,7 +57,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
         texts = [sentences[i * batch_size + j] for j in range(batch_size)]
         db.add_batch(keys, texts, batch_size)
 
-    end = time.time()
+    end = time.perf_counter()
     add_time = end - start
     print(f"Add time: {add_time:.6f} seconds")
 
@@ -67,10 +67,10 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     methods = ['linear', 'kdtree', 'ivf', 'lsh']
 
     # Warm-up
-    start = time.time()
+    start = time.perf_counter()
     for method in methods:
         db.search(query_texts[0], k, method)
-    end = time.time()
+    end = time.perf_counter()
     warm_up_time = end - start
     print(f"Warm-up time: {warm_up_time:.6f} seconds")
 
