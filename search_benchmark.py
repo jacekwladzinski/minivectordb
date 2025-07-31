@@ -33,10 +33,10 @@ def benchmark_method(
         k: int,
         n_repeats: int):
 
-    start = time.time()
+    start = time.perf_counter()
     for i in range(n_repeats):
         results = db.search(query_texts[i], k, method=method)
-    end = time.time()
+    end = time.perf_counter()
 
     search_time = end - start
     print(f"{method} search time: {search_time:.6f} seconds")
