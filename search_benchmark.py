@@ -4,20 +4,22 @@ import pandas as pd
 from minivectordb.engine import MiniVectorDb
 
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 RESULTS_FILE = "benchmark_results.csv"
 db = MiniVectorDb()
 
-DATASET_URL = 'hf://datasets/sentence-transformers/stsb/data/train-00000-of-00001.parquet'
+DATASET_URL = (
+    "hf://datasets/sentence-transformers/stsb/data/train-00000-of-00001.parquet"
+)
 
 
 def load_sentences():
     df = pd.read_parquet(DATASET_URL)
 
     sentences = np.concatenate(
-        [df['sentence1'].to_numpy(), df['sentence2'].to_numpy()],
-        axis=0
+        [df["sentence1"].to_numpy(), df["sentence2"].to_numpy()], axis=0
     )
 
     sentences = np.unique(sentences)
@@ -25,11 +27,7 @@ def load_sentences():
     return sentences
 
 
-def benchmark_method(
-        method: str,
-        query_texts: np.ndarray,
-        k: int,
-        n_repeats: int):
+def benchmark_method(method: str, query_texts: np.ndarray, k: int, n_repeats: int):
 
     start = time.perf_counter()
     for i in range(n_repeats):
@@ -62,9 +60,9 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     print(f"Add time: {add_time:.6f} seconds")
 
     n_repeats = 100
-    query_texts = np.random.choice(sentences[:n_batches * batch_size], size=n_repeats)
+    query_texts = np.random.choice(sentences[: n_batches * batch_size], size=n_repeats)
 
-    methods = ['linear', 'kdtree', 'ivf', 'lsh']
+    methods = ["linear", "kdtree", "ivf", "lsh"]
 
     # Warm-up
     start = time.perf_counter()
@@ -84,13 +82,13 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     for i in range(k):
         for method in methods[1:]:
             if result_dict[method] is not None:
-                exact = result_dict['linear'][i].key
+                exact = result_dict["linear"][i].key
                 approximate = result_dict[method][i].key
                 mismatch[method] = exact != approximate
             else:
                 mismatch[method] = True
 
-    columns = np.concatenate([['Sentence: ' + m, 'Score: ' + m] for m in methods])
+    columns = np.concatenate([["Sentence: " + m, "Score: " + m] for m in methods])
     df = pd.DataFrame(columns=columns)
 
     rows = []
@@ -103,7 +101,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
 
     df = pd.DataFrame(rows)
 
-    print('Query: ', query_texts[n_repeats - 1])
+    print("Query: ", query_texts[n_repeats - 1])
     print(df.head())
     df.to_csv("search_results.csv", index=False)
 
@@ -116,4 +114,4 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
 
 if __name__ == "__main__":
     batch_size = 256
-    benchmark_search_methods(n_vectors=2*batch_size, batch_size=batch_size, k=5)
+    benchmark_search_methods(n_vectors=2 * batch_size, batch_size=batch_size, k=5)
