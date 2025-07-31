@@ -66,7 +66,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     n_repeats = 100
     query_texts = np.random.choice(sentences[:n_batches * batch_size], size=n_repeats)
 
-    methods = ['linear', 'kdtree', 'ivf', 'lsh', 'hnsw']
+    methods = ['linear', 'kdtree', 'ivf', 'lsh']
 
     # Warm-up
     start = time.time()
@@ -81,74 +81,39 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     for method in methods:
         result_dict[method] = benchmark_method(method, query_texts, k, n_repeats)
 
-    mismatch_kd_tree = False
-    mismatch_ivf = False
-    mismatch_lsh = False
-    mismatch_hnsw = False
+    mismatch = {}
 
     for i in range(k):
-        if result_dict['linear'][i].key != result_dict['kdtree'][i].key:
-            mismatch_kd_tree = True
-        if result_dict['linear'][i].key != result_dict['ivf'][i].key:
-            mismatch_ivf = True
-        if result_dict['linear'][i].key != result_dict['lsh'][i].key:
-            mismatch_lsh = True
-        if result_dict['linear'][i].key != result_dict['hnsw'][i].key:
-            mismatch_hnsw = True
+        for method in methods[1:]:
+            if result_dict[method] is not None:
+                exact = result_dict['linear'][i].key
+                approximate = result_dict[method][i].key
+                mismatch[method] = exact != approximate
+            else:
+                mismatch[method] = True
 
-    df = pd.DataFrame(columns=[
-        'Sentence: linear',
-        'Score: linear',
-        'Sentence: KD tree',
-        'Score: KD tree',
-        'Sentence: IVF',
-        'Score: IVF',
-        'Sentence: LSH',
-        'Score: LSH',
-        'Sentence: HNSW',
-        'Score: HNSW'
-        ]
-    )
+    columns = np.concatenate([['Sentence: ' + m, 'Score: ' + m] for m in methods])
+    df = pd.DataFrame(columns=columns)
 
+    rows = []
     for i in range(k):
-        row = pd.DataFrame([{
-            'Sentence: linear': result_dict['linear'][i].text,
-            'Score: linear': result_dict['linear'][i].score,
-            'Sentence: KD tree': result_dict['kdtree'][i].text,
-            'Score: KD tree': result_dict['kdtree'][i].score,
-            'Sentence: IVF': result_dict['ivf'][i].text,
-            'Score: IVF': result_dict['ivf'][i].score,
-            'Sentence: LSH': result_dict['lsh'][i].text,
-            'Score: LSH': result_dict['lsh'][i].score,
-            'Sentence: HNSW': result_dict['hnsw'][i].text,
-            'Score: HNSW': result_dict['hnsw'][i].score,
-        }])
+        row = {}
+        for method in methods:
+            row[f"Sentence: {method}"] = result_dict[method][i].text
+            row[f"Score: {method}"]    = result_dict[method][i].score
+        rows.append(row)
 
-        df = pd.concat([df, row], ignore_index=True)
+    df = pd.DataFrame(rows)
 
     print('Query: ', query_texts[n_repeats - 1])
     print(df.head())
     df.to_csv("search_results.csv", index=False)
 
-    if not mismatch_kd_tree:
-        print("KD Tree results match ✅")
-    else:
-        print("KD Tree results mismatch ❌")
-
-    if not mismatch_ivf:
-        print("IVF results match ✅")
-    else:
-        print("IVF results mismatch ❌")
-
-    if not mismatch_lsh:
-        print("LSH results match ✅")
-    else:
-        print("LSH results mismatch ❌")
-
-    if not mismatch_hnsw:
-        print("HNSW results match ✅")
-    else:
-        print("HNSW results mismatch ❌")
+    for method, value in mismatch.items():
+        if not mismatch[method]:
+            print(f"{method} results match ✅")
+        else:
+            print(f"{method} results mismatch ❌")
 
 
 if __name__ == "__main__":
