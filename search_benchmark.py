@@ -7,7 +7,7 @@ import warnings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-RESULTS_FILE = "benchmark_results.csv"
+SEARCH_RESULTS_FILE = "search_results.csv"
 db = MiniVectorDb()
 
 DATASET_URL = (
@@ -28,7 +28,6 @@ def load_sentences():
 
 
 def benchmark_method(method: str, query_texts: np.ndarray, k: int, n_repeats: int):
-
     start = time.perf_counter()
     for i in range(n_repeats):
         results = db.search(query_texts[i], k, method=method)
@@ -43,10 +42,8 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
     sentences = load_sentences()
     n_vectors = min(n_vectors, sentences.size)
 
-    print(f"Sentences: {sentences.size}")
     print(f"Adding {n_vectors} entries...")
 
-    # Add
     start = time.perf_counter()
 
     n_batches = (int)(n_vectors / batch_size)
@@ -103,7 +100,7 @@ def benchmark_search_methods(n_vectors: int, batch_size: int, k: int):
 
     print("Query: ", query_texts[n_repeats - 1])
     print(df.head())
-    df.to_csv("search_results.csv", index=False)
+    df.to_csv(SEARCH_RESULTS_FILE, index=False)
 
     for method, value in mismatch.items():
         if not mismatch[method]:
