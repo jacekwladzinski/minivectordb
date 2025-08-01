@@ -7,7 +7,7 @@ from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 
 from .index.base_index import SearchResult
-from .index.base_index import BaseIndex
+from .index.linear_index import LinearIndex
 
 
 class MiniVectorDb:
@@ -27,6 +27,8 @@ class MiniVectorDb:
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
         self.keys: List[str] = []
         self.texts: dict = {}
+
+        
 
         # KD tree
         self.kd_tree = None
@@ -192,18 +194,6 @@ class MiniVectorDb:
         self.entry_point = max(range(n), key=lambda i: self.node_levels[i])
         self.needs_rebuild = False
 
-    def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
-        query = self.string_to_embedding(query_text)
-        similarities = self.cosine_similarity(query)
-
-        topk_index = np.argsort(-similarities)[:k]
-        results = []
-        for index in topk_index:
-            key = self.keys[index]
-            result = SearchResult(key, float(similarities[index]), self.texts.get(key))
-            results.append(result)
-        return results
-
     def search_kd_tree(self, query_text: str, k: int = 5) -> List[SearchResult]:
 
         n = self.vectors.shape[0]
@@ -348,8 +338,10 @@ class MiniVectorDb:
                                         self.texts[self.keys[idx]]))
 
     def search(self, query_text: str, k: int = 5, method='lsh') -> List[SearchResult]:
+        query = MiniVectorDb.string_to_embedding(query_text)
         if method == 'linear':
-            return self.search_linear(query_text, k)
+            linear_index = LinearIndex(self.vectors, self.keys, self.texts)
+            return linear_index.search(query, k)
         elif method == 'kdtree':
             return self.search_kd_tree(query_text, k)
         elif method == 'ivf':
