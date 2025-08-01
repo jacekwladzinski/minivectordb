@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List
 import heapq
 
 import numpy as np
@@ -6,11 +6,8 @@ from sklearn.neighbors import KDTree
 from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 
-
-class SearchResult(NamedTuple):
-    key: str
-    score: float
-    text: str
+from .index.base_index import SearchResult
+from .index.base_index import BaseIndex
 
 
 class MiniVectorDb:
