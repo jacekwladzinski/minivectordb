@@ -208,7 +208,7 @@ def test_search_ivf_matches_linear():
     texts = keys
     db.add_batch(keys, texts)
 
-    linear_results = db.search_linear("query", k=3)
+    linear_results = db.search("query", k=3, method='linear')
     ivf_results = db.search_ivf("query", k=3)
 
     assert linear_results[0].key == ivf_results[0].key

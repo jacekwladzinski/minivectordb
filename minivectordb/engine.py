@@ -1,16 +1,13 @@
-from typing import List, NamedTuple
+from typing import List
 import heapq
 
 import numpy as np
-from sklearn.neighbors import KDTree
 from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 
-
-class SearchResult(NamedTuple):
-    key: str
-    score: float
-    text: str
+from .index.base_index import SearchResult
+from .index.linear_index import LinearIndex
+from .index.kdtree_index import KDTreeIndex
 
 
 class MiniVectorDb:
@@ -30,9 +27,6 @@ class MiniVectorDb:
         self.vectors = np.zeros((0, self.dim), dtype=np.float32)
         self.keys: List[str] = []
         self.texts: dict = {}
-
-        # KD tree
-        self.kd_tree = None
 
         # IVF
         self.n_clusters = n_clusters
@@ -100,13 +94,6 @@ class MiniVectorDb:
 
     def cosine_similarity(self, query: np.ndarray) -> np.ndarray:
         return self.vectors.dot(query)
-
-    def rebuild_tree(self) -> None:
-        if self.vectors.shape[0] > 0:
-            self.kd_tree = KDTree(self.vectors, metric='euclidean')
-        else:
-            self.kd_tree = None
-        self.needs_rebuild = False
 
     def rebuild_ivf(self) -> None:
         n_vectors = self.vectors.shape[0]
@@ -194,41 +181,6 @@ class MiniVectorDb:
 
         self.entry_point = max(range(n), key=lambda i: self.node_levels[i])
         self.needs_rebuild = False
-
-    def search_linear(self, query_text: str, k: int = 5) -> List[SearchResult]:
-        query = self.string_to_embedding(query_text)
-        similarities = self.cosine_similarity(query)
-
-        topk_index = np.argsort(-similarities)[:k]
-        results = []
-        for index in topk_index:
-            key = self.keys[index]
-            result = SearchResult(key, float(similarities[index]), self.texts.get(key))
-            results.append(result)
-        return results
-
-    def search_kd_tree(self, query_text: str, k: int = 5) -> List[SearchResult]:
-
-        n = self.vectors.shape[0]
-        if n == 0:
-            return []
-
-        if self.needs_rebuild or self.kd_tree is None:
-            self.rebuild_tree()
-
-        query = self.string_to_embedding(query_text)
-
-        distance, index = self.kd_tree.query(query.reshape(1, -1), k=min(k, n))
-        distance = distance[0]
-        index = index[0]
-
-        results = []
-        for d, i in zip(distance, index):
-            # calculate cosine similarity
-            similarity = 1.0 - (d ** 2) / 2.0
-            result = SearchResult(self.keys[i], float(similarity), self.texts[self.keys[i]])
-            results.append(result)
-        return results
 
     def search_ivf(self, query_text: str, k: int = 5) -> List[SearchResult]:
         # https://developer.nvidia.com/blog/accelerated-vector-search-approximating-with-nvidia-cuvs-ivf-flat/
@@ -351,10 +303,13 @@ class MiniVectorDb:
                                         self.texts[self.keys[idx]]))
 
     def search(self, query_text: str, k: int = 5, method='lsh') -> List[SearchResult]:
+        query = MiniVectorDb.string_to_embedding(query_text)
         if method == 'linear':
-            return self.search_linear(query_text, k)
+            linear_index = LinearIndex(self.vectors, self.keys, self.texts)
+            return linear_index.search(query, k)
         elif method == 'kdtree':
-            return self.search_kd_tree(query_text, k)
+            kdtree_index = KDTreeIndex(self.vectors, self.keys, self.texts)
+            return kdtree_index.search(query, k)
         elif method == 'ivf':
             return self.search_ivf(query_text, k)
         elif method == 'hnsw':
