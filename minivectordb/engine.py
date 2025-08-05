@@ -245,16 +245,16 @@ class MiniVectorDb:
 
     def search(self, query_text: str, k: int = 5, method='lsh') -> List[SearchResult]:
         query = MiniVectorDb.string_to_embedding(query_text)
-        if method == 'linear':
-            linear_index = LinearIndex(self.vectors, self.keys, self.texts)
-            return linear_index.search(query, k)
-        elif method == 'kdtree':
+        if method == 'kdtree':
             kdtree_index = KDTreeIndex(self.vectors, self.keys, self.texts)
             return kdtree_index.search(query, k)
         elif method == 'ivf':
             ivf_index = IVFIndex(self.vectors, self.keys, self.texts)
             return ivf_index.search(query, k)
+        elif method == 'lsh':
+            return self.search_lsh(query_text, k)
         elif method == 'hnsw':
             return self.search_hnsw(query_text, k)
         else:
-            return self.search_lsh(query_text, k)
+            linear_index = LinearIndex(self.vectors, self.keys, self.texts)
+            return linear_index.search(query, k)
